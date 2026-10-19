@@ -1,5 +1,9 @@
 node_modules/
 .tmp/
+coverage/
+
+# CI checkout of the pinned opengis-skills repository (.github/workflows/ci.yml)
+/upstream/
 *.tgz
 *.log
 .DS_Store

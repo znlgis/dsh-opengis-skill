@@ -1,7 +1,7 @@
 {
   "name": "@dsh-gis/dsh-opengis-skill",
-  "version": "0.1.1",
-  "description": "OpenGIS skill pack for DeepSeek Harness: 32 GIS skills from opengis-skills (GDAL, QGIS, GeoServer, PostGIS, JTS, CesiumJS, OpenLayers and more), loaded on demand.",
+  "version": "0.1.2",
+  "description": "OpenGIS skill pack for DeepSeek Harness: the gis/ skills from opengis-skills (GDAL, QGIS, GeoServer, PostGIS, JTS, CesiumJS, OpenLayers and more), loaded on demand.",
   "type": "module",
   "main": "lib/index.js",
   "types": "lib/index.d.ts",
@@ -28,10 +28,12 @@
     "icon.svg",
     "upstream.json",
     "README.md",
-    "THIRD_PARTY_NOTICES.md"
+    "THIRD_PARTY_NOTICES.md",
+    "CHANGELOG.md",
+    ".editorconfig"
   ],
   "engines": {
-    "dsh": ">=0.2.1-rc.2 <0.3.0-0",
+    "dsh": ">=0.2.0-rc.2 <0.3.0-0",
     "node": ">=22"
   },
   "dsh": {
@@ -44,7 +46,8 @@
     "sync:check": "node scripts/sync-opengis-skills.mjs --check",
     "validate": "node scripts/validate-skills.mjs",
     "test": "node --test",
-    "prepublishOnly": "npm run validate && npm test"
+    "check": "npm run validate && npm test",
+    "prepublishOnly": "npm run check"
   },
   "repository": {
     "type": "git",
@@ -60,7 +63,10 @@
     "dsh-plugin",
     "cordis",
     "skills",
+    "skill",
     "skill-pack",
+    "dsh-bundle",
+    "gis-skills",
     "gis",
     "geospatial",
     "opengis",

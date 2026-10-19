@@ -31,10 +31,14 @@ SOFTWARE.
 ```
 
 The exact upstream commit, sync time, and the list of vendored skills are
-recorded in [`upstream.json`](./upstream.json); the copy is performed by
-`scripts/sync-opengis-skills.mjs`, which lives in the source repository
-(<https://github.com/znlgis/dsh-opengis-skill>) and is not part of the
-published package. Text files are vendored with LF line endings so the
+recorded in [`upstream.json`](./upstream.json), together with a SHA-256
+integrity manifest of the snapshot: `schemaVersion` 1, `hashAlgorithm`
+`sha256`, and a `files` map from every vendored file's POSIX path (relative
+to `assets/`) to its digest. `npm run validate` recomputes those digests and
+fails when the vendored bytes drift from the recorded manifest. The copy is
+performed by `scripts/sync-opengis-skills.mjs`, which lives in the source
+repository (<https://github.com/znlgis/dsh-opengis-skill>) and is not part of
+the published package. Text files are vendored with LF line endings so the
 snapshot matches the upstream git blob on every platform. The skills are
 documentation: each one describes an independent open-source project (GDAL,
 QGIS, GeoServer, PostGIS, JTS, CesiumJS, OpenLayers, and others) and links to

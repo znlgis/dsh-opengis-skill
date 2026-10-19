@@ -1,0 +1,350 @@
+---
+name: geometry-api-net
+description: "Use when working with Esri geometry types (Point, Polyline, Polygon, Envelope) in .NET/C# — spatial operations, JSON/GeoJSON/WKT I/O, geodesic calculations. Esri Geometry API for .NET."
+tags:
+  - dotnet
+  - geometry
+  - esri
+  - spatial
+  - wkt
+  - wkb
+  - geojson
+  - geodesic
+  - csharp
+---
+
+> **项目地址：** <https://github.com/znlgis/geometry-api-net>
+>
+> **官方文档：** <https://github.com/znlgis/geometry-api-net/wiki>
+>
+> **NuGet：** `OpenGIS.Esri.Geometry.Core`（最新 1.0.9，截至 2026-10）
+>
+> **注意：** 原 Esri 仓库（github.com/Esri/geometry-api-net）已不再维护（404）。此分支由 znlgis 社区维护，已重命名为 OpenGIS.Esri.Geometry。
+>
+> **许可证：** LGPL-2.1
+> 
+> 本文件旨在帮助 AI 快速理解并使用 geometry-api-net 库进行空间几何开发。
+
+## 概述
+
+这是一个 .NET Standard 2.0 的空间几何计算库，提供 6 种几何类型、28 个空间运算算子（含 DE-9IM 驱动的 9 个谓词、多边形布尔运算、缓冲/简化/MakeValid 与大地测量）和 4 种序列化格式（WKT/EWKT、WKB/EWKB、GeoJSON、Esri JSON），核心引擎已与 PostGIS/GEOS 交叉验证。
+
+- **核心包**: `OpenGIS.Esri.Geometry.Core`
+- **JSON 扩展包**: `OpenGIS.Esri.Geometry.Json`
+- **许可证**: LGPL-2.1-only
+
+## 快速开始
+
+```bash
+dotnet add package OpenGIS.Esri.Geometry.Core
+dotnet add package OpenGIS.Esri.Geometry.Json    # 可选，System.Text.Json 支持
+```
+
+---
+
+## 核心 API 与命名空间
+
+| 命名空间 | 用途 |
+|---------|------|
+| `OpenGIS.Esri.Geometry.Core` | 核心入口，GeometryEngine 便捷 API |
+| `OpenGIS.Esri.Geometry.Core.Geometries` | 几何类型（Point, Polygon 等） |
+| `OpenGIS.Esri.Geometry.Core.Operators` | 空间运算算子 |
+| `OpenGIS.Esri.Geometry.Core.SpatialReference` | 空间参考 / 坐标系统 |
+| `OpenGIS.Esri.Geometry.Core.IO` | 序列化（WKT, WKB, GeoJSON, EsriJson） |
+| `OpenGIS.Esri.Geometry.Json.Converters` | System.Text.Json 转换器 |
+
+---
+
+> 几何类型体系与两种 API 风格的完整说明见 [reference/geometry-types.md](reference/geometry-types.md)
+
+## 序列化格式
+
+### WKT（Well-Known Text）
+
+```csharp
+using OpenGIS.Esri.Geometry.Core.IO;
+
+// 导出
+string wkt = WktExportOperator.ExportToWkt(geometry);
+// "POINT (10.5 20.7)"
+// "POINT Z (10.5 20.7 30.1)"
+// "LINESTRING (0 0, 10 0, 10 10)"
+// "POLYGON ((0 0, 10 0, 10 10, 0 10, 0 0))"
+// "MULTIPOINT ((1 2), (3 4))"
+
+// 导入
+Geometry geometry = WktImportOperator.ImportFromWkt("POINT (10.5 20.7)");
+```
+
+### WKB（Well-Known Binary）
+
+```csharp
+// 导出（默认小端序）
+byte[] wkb = WkbExportOperator.ExportToWkb(geometry);
+byte[] wkbBigEndian = WkbExportOperator.ExportToWkb(geometry, bigEndian: true);
+
+// 导入（自动检测字节序）
+Geometry geometry = WkbImportOperator.ImportFromWkb(wkbBytes);
+```
+
+### GeoJSON
+
+```csharp
+// 导出
+string geoJson = GeoJsonExportOperator.ExportToGeoJson(geometry);
+// {"type":"Point","coordinates":[10.5,20.7]}
+
+// 导入
+Geometry geometry = GeoJsonImportOperator.ImportFromGeoJson(geoJsonString);
+```
+
+### Esri JSON
+
+```csharp
+// 导出
+string esriJson = EsriJsonExportOperator.Instance.Execute(geometry);
+// Point:      {"x":10.5,"y":20.7}
+// MultiPoint: {"points":[[1,2],[3,4]]}
+// Polyline:   {"paths":[[[0,0],[10,0],[10,10]]]}
+// Polygon:    {"rings":[[[0,0],[10,0],[10,10],[0,10],[0,0]]]}
+// Envelope:   {"xmin":0,"ymin":0,"xmax":10,"ymax":10}
+
+// 导入
+Geometry geometry = EsriJsonImportOperator.ImportFromEsriJson(esriJsonString);
+```
+
+### System.Text.Json 集成
+
+```csharp
+using OpenGIS.Esri.Geometry.Json.Converters;
+
+var options = new JsonSerializerOptions();
+options.Converters.Add(new PointJsonConverter());
+
+string json = JsonSerializer.Serialize(point, options);
+Point point = JsonSerializer.Deserialize<Point>(json, options);
+```
+
+---
+
+## 空间参考
+
+```csharp
+using OpenGIS.Esri.Geometry.Core.SpatialReference;
+
+// 预定义空间参考
+var wgs84 = SpatialReference.Wgs84();          // EPSG:4326 (经纬度)
+var webMercator = SpatialReference.WebMercator(); // EPSG:3857 (Web 墨卡托)
+
+// 自定义 WKID
+var sr = new SpatialReference(4490);            // CGCS2000
+
+// 属性
+sr.Wkid         // int?, WKID 编号
+sr.LatestWkid   // int?, 最新 WKID
+sr.Wkt          // string?, WKT 表示
+
+// 组合几何与空间参考
+var mapGeom = new MapGeometry(geometry, SpatialReference.Wgs84());
+mapGeom.Geometry         // Geometry 对象
+mapGeom.SpatialReference // SpatialReference 对象
+```
+
+---
+
+## Proximity2DResult（邻近搜索结果）
+
+```csharp
+Proximity2DResult result = GeometryEngine.GetNearestCoordinate(geometry, point);
+
+result.IsEmpty       // bool, 结果是否为空
+result.Coordinate    // Point, 最近坐标点
+result.VertexIndex   // int, 最近顶点索引
+result.Distance      // double, 距离
+result.IsRightSide   // bool, 是否在多路径几何的右侧
+```
+
+---
+
+## 常见开发场景
+
+### 场景 1：判断点是否在多边形内
+
+```csharp
+var polygon = new Polygon();
+polygon.AddRing(new[] {
+    new Point(0, 0), new Point(10, 0), new Point(10, 10),
+    new Point(0, 10), new Point(0, 0)
+});
+var point = new Point(5, 5);
+
+bool inside = GeometryEngine.Contains(polygon, point);  // true
+```
+
+### 场景 2：计算两个经纬度点之间的大地距离（米）
+
+```csharp
+var beijing = new Point(116.4074, 39.9042);
+var shanghai = new Point(121.4737, 31.2304);
+
+double meters = GeometryEngine.GeodesicDistance(beijing, shanghai);
+```
+
+### 场景 3：创建缓冲区
+
+```csharp
+var point = new Point(10, 20);
+Geometry buffer = GeometryEngine.Buffer(point, 5.0);  // 半径为 5 的缓冲区
+
+var envelope = buffer.GetEnvelope();
+// XMin=5, YMin=15, XMax=15, YMax=25
+```
+
+### 场景 4：计算两个区域的交集
+
+```csharp
+var env1 = new Envelope(0, 0, 10, 10);
+var env2 = new Envelope(5, 5, 15, 15);
+
+Geometry result = GeometryEngine.Intersection(env1, env2);
+// 交集区域: (5,5) 到 (10,10)
+```
+
+### 场景 5：合并多个几何体
+
+```csharp
+var p1 = new Point(0, 0);
+var p2 = new Point(10, 10);
+
+Geometry merged = GeometryEngine.Union(p1, p2);
+// 结果为 MultiPoint，包含两个点
+```
+
+### 场景 6：GeoJSON 往返序列化
+
+```csharp
+var polygon = new Polygon();
+polygon.AddRing(new[] {
+    new Point(0, 0), new Point(1, 0), new Point(1, 1),
+    new Point(0, 1), new Point(0, 0)
+});
+
+string geoJson = GeometryEngine.GeometryToGeoJson(polygon);
+Geometry restored = GeometryEngine.GeometryFromGeoJson(geoJson);
+```
+
+### 场景 7：从 WKT 导入几何体并做空间分析
+
+```csharp
+var geom1 = GeometryEngine.GeometryFromWkt("POLYGON ((0 0, 10 0, 10 10, 0 10, 0 0))");
+var geom2 = GeometryEngine.GeometryFromWkt("POINT (5 5)");
+
+bool contains = GeometryEngine.Contains(geom1, geom2);  // true
+double distance = GeometryEngine.Distance(geom1, geom2); // 0
+```
+
+### 场景 8：获取几何体的凸包
+
+```csharp
+var multiPoint = new MultiPoint(new[] {
+    new Point(0, 0), new Point(10, 0), new Point(5, 10),
+    new Point(3, 3), new Point(7, 2)
+});
+
+Geometry hull = GeometryEngine.ConvexHull(multiPoint);
+// 结果为包围所有点的最小凸多边形
+```
+
+### 场景 9：计算多边形的质心
+
+```csharp
+var polygon = new Polygon();
+polygon.AddRing(new[] {
+    new Point(0, 0), new Point(10, 0), new Point(10, 10),
+    new Point(0, 10), new Point(0, 0)
+});
+
+Point centroid = GeometryEngine.Centroid(polygon);
+// centroid.X = 5, centroid.Y = 5
+```
+
+### 场景 10：线的简化与加密
+
+```csharp
+var polyline = new Polyline();
+polyline.AddPath(new[] {
+    new Point(0, 0), new Point(5, 0.1), new Point(10, 0),
+    new Point(10, 5), new Point(10, 10)
+});
+
+// 简化：移除偏差小于 tolerance 的顶点
+Geometry simplified = GeometryEngine.Simplify(polyline, 0.5);
+
+// 加密：确保每段不超过 maxSegmentLength
+Geometry densified = GeometryEngine.Densify(polyline, 2.0);
+
+// 泛化：保持形状前提下减少顶点
+Geometry generalized = GeometryEngine.Generalize(polyline, 1.0);
+```
+
+---
+
+## 构建与测试
+
+```bash
+# 构建
+dotnet build
+
+# 运行测试（xUnit）
+dotnet test
+
+# 运行示例
+dotnet run --project samples/OpenGIS.Esri.Geometry.Samples
+```
+
+---
+
+## AI 使用建议
+
+### 推荐工作流
+
+1. **创建几何对象**：使用 `Point`、`Polyline`、`Polygon` 等构造函数创建几何
+2. **空间运算**：优先使用 `GeometryEngine` 静态方法（API 最简洁）；需要精细控制时使用 `Operator.Instance` 单例模式
+3. **格式转换**：使用 `GeometryEngine.GeometryToGeoJson()` / `GeometryFromWkt()` 等方法进行 WKT、WKB、GeoJSON、Esri JSON 互转
+4. **大地测量**：对地理坐标的距离/面积计算，使用 `GeometryEngine.GeodesicDistance()` / `GeodesicArea()`
+5. **序列化集成**：使用 `OpenGIS.Esri.Geometry.Json.Converters` 命名空间的 `System.Text.Json` 转换器
+
+### 关键注意事项
+
+- **Polygon 环必须闭合**：首尾点必须相同
+- **返回类型需转换**：集合运算返回 `Geometry` 基类，需根据实际类型做类型转换
+- **大地测量基于 WGS84**：`GeodesicDistance` 使用 Vincenty 公式
+- **GeoJSON 导出规则**：单路径 Polyline 导出为 `LineString`，多路径导出为 `MultiLineString`
+- **Operator 使用 Lazy 单例**：所有 Operator 类通过 `Instance` 属性获取单例实例
+
+## 常见问题
+
+| 问题 | 解决 |
+|------|------|
+| NuGet 安装后找不到命名空间 | 同时安装 `OpenGIS.Esri.Geometry.Core` 与（可选）`OpenGIS.Esri.Geometry.Json`；命名空间为 `OpenGIS.Esri.Geometry.Core.*` |
+| Polygon 面积 / 包含判断异常 | 环必须闭合（首尾点相同），可先用 `GeometryEngine.Simplify` 修复 |
+| 浮点坐标比较误差 | 内部容差 `GeometryConstants.DefaultTolerance`（1e-10），为内部常量、不可外部配置 |
+| 集合运算返回值类型不符预期 | 返回 `Geometry` 基类，需按实际类型做类型转换后使用 |
+| 无法 `new` 算子实例 | 所有 Operator 类通过 `Instance` 属性获取 Lazy 单例 |
+| 修改 `GetRing()` / `GetPath()` 结果报错 | 返回 `IReadOnlyList<Point>` 只读视图，需要复制后修改 |
+| `GeodesicDistance` 结果异常 | 基于 WGS84（Vincenty 公式），输入必须是经纬度坐标；`GeodesicArea` 使用球面超量公式 |
+| GeoJSON 导出类型与预期不符 | 单路径 Polyline 导出为 `LineString`，多路径导出为 `MultiLineString`；Envelope 导出为 `Polygon` |
+
+## 相关技能
+
+- **nettopologysuite** — .NET JTS 移植（几何计算核心）：[../nettopologysuite/SKILL.md](../nettopologysuite/SKILL.md)
+- **opengis-utils-for-net** — .NET GIS 统一工具包：[../opengis-utils-for-net/SKILL.md](../opengis-utils-for-net/SKILL.md)
+- **geometry-api-java** — Java 版本 Esri Geometry API：[../geometry-api-java/SKILL.md](../geometry-api-java/SKILL.md)
+- **jts** — JTS Topology Suite：[../jts/SKILL.md](../jts/SKILL.md)
+
+## 参考资源
+
+- **GitHub 仓库：** <https://github.com/znlgis/geometry-api-net>
+- **官方 Wiki：** <https://github.com/znlgis/geometry-api-net/wiki>
+- **NuGet：** <https://www.nuget.org/packages/OpenGIS.Esri.Geometry.Core>
+- **中文教程（znlgis）：** <https://znlgis.github.io/gis/tutorial/geometry-api-net/>

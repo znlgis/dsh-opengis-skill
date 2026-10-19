@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "OpenGIS 技能包",
+    "description": "来自 opengis-skills 的 32 个 GIS 技能：GDAL、QGIS、GeoServer、PostGIS、JTS、CesiumJS、OpenLayers、Leaflet、deck.gl 等，按需加载。"
+  }
+}

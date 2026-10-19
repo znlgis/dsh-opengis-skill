@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128" role="img" aria-label="OpenGIS Skills">
+  <rect x="4" y="4" width="120" height="120" rx="26" fill="#0f4c96"/>
+  <circle cx="58" cy="68" r="33" fill="#1d6fd8"/>
+  <g fill="none" stroke="#bfe0ff" stroke-width="3" stroke-linecap="round">
+    <circle cx="58" cy="68" r="33"/>
+    <ellipse cx="58" cy="68" rx="14" ry="33"/>
+    <path d="M25 68h66M30 50h56M30 86h56"/>
+  </g>
+  <path d="M94 20a14 14 0 0 0-14 14c0 10 14 24 14 24s14-14 14-24a14 14 0 0 0-14-14z" fill="#ffd166"/>
+  <circle cx="94" cy="34" r="5" fill="#7a4b00"/>
+</svg>

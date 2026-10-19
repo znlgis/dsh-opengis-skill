@@ -1,0 +1,6 @@
+# Normalize repository text to LF.
+* text=auto eol=lf
+
+# Vendored skill assets are copied byte-exact from the upstream checkout, so
+# disable any line-ending or encoding conversion for them.
+assets/** -text

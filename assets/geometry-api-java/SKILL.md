@@ -1,0 +1,410 @@
+---
+name: geometry-api-java
+description: "Use when working with Esri geometry types (Point, Polyline, Polygon, Envelope) in Java — spatial operations, JSON/GeoJSON/WKT I/O, geodesic calculations. Esri Geometry API for Java."
+tags:
+  - java
+  - geometry
+  - esri
+  - spatial
+  - wkt
+  - wkb
+  - geojson
+  - geodesic
+---
+
+> **项目地址：** <https://github.com/Esri/geometry-api-java>
+>
+> **官方文档：** <https://github.com/Esri/geometry-api-java/wiki>
+>
+> **Maven Central：** `com.esri.geometry:esri-geometry-api`
+>
+> **最新版本：** 2.2.4（Maven Central，截至 2026-10）；上游源码 2.3.1（2026-10-09），未发布到 Central
+>
+> **许可证：** Apache-2.0
+
+## 概述
+
+Esri Geometry API for Java 是一个自包含的空间几何计算库，提供对二维和三维几何对象的创建、解析、序列化以及空间关系运算能力。它无需任何外部 GIS 依赖，可直接嵌入 Java 应用、Hadoop MapReduce、Hive UDF、Spark 等大数据处理框架中。
+
+---
+
+## 环境准备与快速集成
+
+### Maven
+
+```xml
+<dependency>
+  <groupId>com.esri.geometry</groupId>
+  <artifactId>esri-geometry-api</artifactId>
+  <version>2.2.4</version><!-- Maven Central 最新版；上游 2.3.1 尚未发布到 Central -->
+</dependency>
+```
+
+### Gradle
+
+```groovy
+implementation 'com.esri.geometry:esri-geometry-api:2.2.4'
+```
+
+**环境要求：** JDK 1.7+；运行时依赖 `jackson-core`（JSON 处理）。
+
+> **维护状态提示：** Maven Central 上最新发布版本仍是 **2.2.4（2020-09）**；上游仓库已发布 **2.3.1（2026-10）**，但尚未发布到 Maven Central（可从 [GitHub Releases](https://github.com/Esri/geometry-api-java/releases) 获取构建产物）。若需活跃维护的几何库，新项目建议优先选用 JTS（Java）或 NetTopologySuite（.NET）。
+
+---
+
+## 核心 API 一览
+
+| 类 | 包 | 用途 |
+|---|---|---|
+| `GeometryEngine` | `com.esri.core.geometry` | **推荐入口**——提供几何操作的静态便捷方法 |
+| `OperatorFactoryLocal` | `com.esri.core.geometry` | 算子工厂，适用于高性能批量处理 |
+| `SpatialReference` | `com.esri.core.geometry` | 空间参考 / 坐标系（通过 WKID 或 WKT 创建） |
+| `MapGeometry` | `com.esri.core.geometry` | 将 Geometry 与 SpatialReference 打包在一起 |
+| `Point` | `com.esri.core.geometry` | 点（0 维） |
+| `MultiPoint` | `com.esri.core.geometry` | 多点集合（0 维） |
+| `Polyline` | `com.esri.core.geometry` | 折线 / 路径集合（1 维） |
+| `Polygon` | `com.esri.core.geometry` | 面 / 环集合（2 维） |
+| `Envelope` | `com.esri.core.geometry` | 外接矩形（2 维） |
+
+---
+
+## 几何对象创建
+
+```java
+import com.esri.core.geometry.*;
+
+// 点
+Point pt = new Point(116.4, 39.9);          // 2D
+Point pt3d = new Point(116.4, 39.9, 50.0);  // 3D
+
+// 折线
+Polyline line = new Polyline();
+line.startPath(0, 0);
+line.lineTo(10, 10);
+line.lineTo(20, 0);
+
+// 面
+Polygon polygon = new Polygon();
+polygon.startPath(0, 0);
+polygon.lineTo(10, 0);
+polygon.lineTo(10, 10);
+polygon.lineTo(0, 10);
+// 自动闭合
+
+// 外接矩形
+Envelope env = new Envelope(0, 0, 10, 10);
+
+// 多点
+MultiPoint mp = new MultiPoint();
+mp.add(1, 2);
+mp.add(3, 4);
+```
+
+---
+
+## 空间参考
+
+```java
+// 按 WKID 创建（WGS 84 = 4326）
+SpatialReference srWGS84 = SpatialReference.create(4326);
+
+// 按 WKT 字符串创建
+SpatialReference srCustom = SpatialReference.create("GEOGCS[\"GCS_WGS_1984\",...]]");
+
+// 与几何对象绑定
+MapGeometry mapGeom = new MapGeometry(pt, srWGS84);
+```
+
+---
+
+## 空间操作（通过 GeometryEngine）
+
+### 集合运算
+
+```java
+SpatialReference sr = SpatialReference.create(4326);
+
+// 缓冲区
+Geometry buffered = GeometryEngine.buffer(point, sr, 100.0);
+
+// 交集
+Geometry inter = GeometryEngine.intersect(polygon1, polygon2, sr);
+
+// 合并
+Geometry united = GeometryEngine.union(new Geometry[]{poly1, poly2, poly3}, sr);
+
+// 差集
+Geometry diff = GeometryEngine.difference(polygon1, polygon2, sr);
+
+// 对称差
+Geometry symDiff = GeometryEngine.symmetricDifference(geom1, geom2, sr);
+
+// 裁剪（按矩形）
+Geometry clipped = GeometryEngine.clip(geometry, envelope, sr);
+
+// 切割（用折线切割面或线）
+Geometry[] parts = GeometryEngine.cut(polygon, cuttingLine, sr);
+```
+
+### 距离与邻近
+
+```java
+double dist = GeometryEngine.distance(geom1, geom2, sr);
+```
+
+### 空间关系判断
+
+```java
+boolean eq   = GeometryEngine.equals(g1, g2, sr);
+boolean wn   = GeometryEngine.within(point, polygon, sr);
+boolean ct   = GeometryEngine.contains(polygon, point, sr);
+// 相交判断：GeometryEngine 未提供 intersects，需通过算子调用
+boolean ix   = OperatorIntersects.local().execute(g1, g2, sr, null);
+boolean dj   = GeometryEngine.disjoint(g1, g2, sr);
+boolean tc   = GeometryEngine.touches(g1, g2, sr);
+boolean cr   = GeometryEngine.crosses(line, polygon, sr);
+boolean ol   = GeometryEngine.overlaps(poly1, poly2, sr);
+
+// DE-9IM 关系矩阵
+boolean rel  = GeometryEngine.relate(g1, g2, sr, "T*F**FFF*");
+```
+
+### 几何分析
+
+```java
+// 凸包
+Geometry hull = GeometryEngine.convexHull(geometry);
+
+// 简化
+Geometry simplified = GeometryEngine.simplify(geometry, sr);
+
+// 泛化（简化顶点；GeometryEngine 未提供，使用算子）
+Geometry generalized = OperatorGeneralize.local().execute(geometry, maxDeviation, true, null);
+
+// 质心（GeometryEngine 无 getLabelPoint；标注点可用质心近似）
+Point2D centroid = OperatorCentroid2D.local().execute(polygon, null);
+```
+
+### 大地测量（椭球面计算）
+
+```java
+// 两点间大地距离（WGS84 椭球，单位米）——应用层公开的大地测量 API
+double meters = GeometryEngine.geodesicDistanceOnWGS84(beijing, shanghai);
+```
+
+> **说明：** 大地测量缓冲区 / 面积 / 长度的算子在库内部注册（`Operator.Type.GeodesicBuffer`、`GeodeticArea`、`GeodeticLength`），但其算子类在 2.2.4/2.3.x 中未对外公开（编译期不可引用）。应用层可直接使用的公开大地测量 API 为 `GeometryEngine.geodesicDistanceOnWGS84()`；需要椭球面面积 / 长度 / 缓冲区时，建议改用 JTS / GeoTools 或 ArcGIS API。
+
+---
+
+## 格式转换
+
+### JSON（Esri JSON）
+
+```java
+// 导入
+MapGeometry mg = GeometryEngine.jsonToGeometry(jsonString);
+Geometry geom = mg.getGeometry();
+SpatialReference sr = mg.getSpatialReference();
+
+// 导出（附带 WKID）
+String json = GeometryEngine.geometryToJson(4326, geometry);
+```
+
+### GeoJSON
+
+```java
+// 导入
+MapGeometry mg = GeometryEngine.geoJsonToGeometry(geoJsonString, 0, Geometry.Type.Unknown);
+
+// 导出
+String geoJson = GeometryEngine.geometryToGeoJson(geometry);
+```
+
+### WKT（Well-Known Text）
+
+```java
+// 导入
+Geometry geom = GeometryEngine.geometryFromWkt(
+    "POLYGON((0 0,10 0,10 10,0 10,0 0))",
+    0,
+    Geometry.Type.Polygon
+);
+
+// 导出
+String wkt = GeometryEngine.geometryToWkt(geometry, 0);
+```
+
+### WKB（Well-Known Binary）
+
+```java
+OperatorFactoryLocal factory = OperatorFactoryLocal.getInstance();
+
+// 导入（GeometryEngine 未提供 WKB 方法，使用算子）
+OperatorImportFromWkb importer =
+    (OperatorImportFromWkb) factory.getOperator(Operator.Type.ImportFromWkb);
+Geometry geom = importer.execute(0, Geometry.Type.Unknown, ByteBuffer.wrap(wkbBytes), null);
+
+// 导出
+OperatorExportToWkb exporter =
+    (OperatorExportToWkb) factory.getOperator(Operator.Type.ExportToWkb);
+ByteBuffer wkb = exporter.execute(0, geometry, null);
+```
+
+### Esri Shape
+
+```java
+// 导入
+Geometry geom = GeometryEngine.geometryFromEsriShape(byteBuffer, Geometry.Type.Polygon);
+
+// 导出
+byte[] shape = GeometryEngine.geometryToEsriShape(geometry);
+```
+
+---
+
+## 高级用法：Operator 直接调用
+
+当需要批量处理大量几何对象时，使用 `OperatorFactoryLocal` 获取算子并配合 `GeometryCursor` 可获得更好的性能：
+
+```java
+OperatorFactoryLocal factory = OperatorFactoryLocal.getInstance();
+OperatorBuffer bufferOp = (OperatorBuffer) factory.getOperator(Operator.Type.Buffer);
+
+// 使用 SimpleGeometryCursor 包装输入
+SimpleGeometryCursor inputCursor = new SimpleGeometryCursor(geometryArray);
+double[] distances = {100.0};
+GeometryCursor resultCursor = bufferOp.execute(inputCursor, sr, distances, false, null);
+
+// 逐个取出结果
+Geometry result;
+while ((result = resultCursor.next()) != null) {
+    // 处理每个缓冲区结果
+}
+```
+
+---
+
+## 几何类型判断
+
+```java
+Geometry.Type type = geometry.getType();
+
+switch (type) {
+    case Point:      Point p = (Point) geometry; break;
+    case Polygon:    Polygon pg = (Polygon) geometry; break;
+    case Polyline:   Polyline pl = (Polyline) geometry; break;
+    case MultiPoint: MultiPoint mp = (MultiPoint) geometry; break;
+    case Envelope:   Envelope ev = (Envelope) geometry; break;
+}
+
+// 按维度判断
+boolean isPoint  = Geometry.isPoint(type.value());
+boolean isLinear = Geometry.isLinear(type.value());
+boolean isArea   = Geometry.isArea(type.value());
+```
+
+---
+
+## 顶点属性（Z / M / ID）
+
+```java
+// 检查属性
+geometry.hasZ();
+geometry.hasM();
+geometry.hasID();
+
+// 添加属性
+geometry.addAttribute(VertexDescription.Semantics.Z);
+geometry.addAttribute(VertexDescription.Semantics.M);
+```
+
+---
+
+## 典型工作流：WKT 解析 → 空间运算 → GeoJSON 输出
+
+```java
+import com.esri.core.geometry.*;
+
+// 1. 解析输入几何（WKT）
+Geometry polygon = GeometryEngine.geometryFromWkt(
+    "POLYGON((0 0,10 0,10 10,0 10,0 0))",
+    0,
+    Geometry.Type.Polygon
+);
+
+SpatialReference sr = SpatialReference.create(4326);
+
+// 2. 缓冲区分析
+Polygon buffered = GeometryEngine.buffer(polygon, sr, 2.0);
+
+// 3. 相交判断（算子调用）
+boolean hit = OperatorIntersects.local().execute(buffered, new Point(5, 5), sr, null);
+
+// 4. 导出 GeoJSON
+if (hit) {
+    String geoJson = GeometryEngine.geometryToGeoJson(buffered);
+    System.out.println(geoJson);
+}
+```
+
+---
+
+## 典型应用场景
+
+| 场景 | 关键方法 |
+|---|---|
+| 地理围栏 / 点在面内判断 | `GeometryEngine.contains()` 或 `within()` |
+| 计算两点距离 | `GeometryEngine.distance()`；经纬度点用 `geodesicDistanceOnWGS84()` |
+| 创建缓冲区（如 POI 周边范围） | `GeometryEngine.buffer()`（平面缓冲区） |
+| 面求交 / 叠加分析 | `GeometryEngine.intersect()` / `union()` / `difference()` |
+| 坐标格式互转 | `jsonToGeometry()` / `geometryToGeoJson()` / `geometryFromWkt()` 等 |
+| 几何有效性检查与修复 | `GeometryEngine.simplify()` |
+| Hadoop / Spark 空间处理 | 搭配 Operator + GeometryCursor 批量处理 |
+
+---
+
+## 常见问题
+
+| 问题 | 解决 |
+|------|------|
+| 空间运算结果异常 | 确保所有几何对象使用相同的 `SpatialReference` |
+| 导入的几何拓扑无效 | 用 `GeometryEngine.simplify()` 规范化后再参与运算 |
+| 经纬度坐标下长度/面积失真 | 平面算子在投影坐标下使用；经纬度距离用 `geodesicDistanceOnWGS84()`（椭球面积/长度算子未公开） |
+| 找不到 WKB / intersects / generalize 方法 | 这些能力通过算子调用（`OperatorImportFromWkb`、`OperatorIntersects`、`OperatorGeneralize` 等） |
+| 批量处理性能差 | 使用 `OperatorFactoryLocal` + `GeometryCursor` 批量执行，避免逐个调用静态方法 |
+| 多线程共享 `Operator` 出错 | `GeometryEngine` 静态方法线程安全；`Operator` 实例非线程安全，不要跨线程复用 |
+
+---
+
+## AI 使用建议
+
+### 推荐工作流
+
+1. **创建几何对象**：使用 `Point`、`Polyline`、`Polygon` 等构造函数创建几何
+2. **设置空间参考**：通过 `SpatialReference.create(wkid)` 指定坐标系
+3. **空间运算**：优先使用 `GeometryEngine` 静态方法（线程安全、API 简洁）；批量处理使用 `OperatorFactoryLocal` + `GeometryCursor`
+4. **格式转换**：使用 `GeometryEngine.geometryToGeoJson()` / `geometryFromWkt()` 等方法进行 WKT、GeoJSON、Esri JSON 互转；WKB 通过 `OperatorImportFromWkb` / `OperatorExportToWkb` 算子
+5. **大地测量**：经纬度距离使用 `GeometryEngine.geodesicDistanceOnWGS84()`（返回米）；椭球面积/长度算子未对外公开，需要时改用 JTS / GeoTools
+
+### 关键注意事项
+
+- **坐标系一致**：进行空间运算前，确保所有几何对象使用相同的 `SpatialReference`
+- **简化几何**：导入外部数据后，使用 `GeometryEngine.simplify()` 确保拓扑正确
+- **大地测量 vs 平面**：经纬度距离用 `geodesicDistanceOnWGS84()`；椭球面积/长度算子未公开，建议改用 JTS/GeoTools
+- **性能优化**：批量操作使用 `OperatorFactoryLocal` + `GeometryCursor`，而非逐个调用 `GeometryEngine` 静态方法
+- **线程安全**：`GeometryEngine` 静态方法是线程安全的；`Operator` 实例非线程安全
+
+## 相关技能
+
+- **jts** — JTS Topology Suite（Java 几何计算标准）：[../jts/SKILL.md](../jts/SKILL.md)
+- **geotools** — Java GIS 工具库：[../geotools/SKILL.md](../geotools/SKILL.md)
+- **opengis-utils-for-java** — Java GIS 统一工具包：[../opengis-utils-for-java/SKILL.md](../opengis-utils-for-java/SKILL.md)
+- **geometry-api-net** — .NET 版本 Esri Geometry API：[../geometry-api-net/SKILL.md](../geometry-api-net/SKILL.md)
+
+## 参考资源
+
+- **GitHub 仓库：** <https://github.com/Esri/geometry-api-java>
+- **官方 Wiki：** <https://github.com/Esri/geometry-api-java/wiki>
+- **Javadoc：** <https://esri.github.io/geometry-api-java/javadoc/>
+- **Maven Central：** <https://repo1.maven.org/maven2/com/esri/geometry/>
+- **相关项目 — Spatial Framework for Hadoop：** <https://github.com/Esri/spatial-framework-for-hadoop>

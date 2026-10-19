@@ -1,0 +1,9 @@
+# Bundle layer for @dsh-gis/dsh-opengis-skill.
+#
+# The row mounts the OpenGIS skill provider on the Host, so every preset that
+# loads skills (the session catalog) sees the 32 bundled GIS skills. Disable the
+# row or the bundle in Plugins to remove them again; both are file-static assets,
+# so a package update needs a reload or restart.
+- insert:
+    - id: opengis-skill
+      name: '@dsh-gis/dsh-opengis-skill'

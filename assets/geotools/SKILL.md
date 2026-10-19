@@ -1,0 +1,425 @@
+---
+name: geotools
+description: "Use when building Java GIS applications — feature reading/writing, coordinate transformations, map styling, spatial filters, WMS/WFS clients. GeoTools: the Java GIS toolkit and OGC standards reference implementation."
+tags:
+  - java
+  - gis
+  - ogc
+  - wms
+  - wfs
+  - vector
+  - raster
+  - crs
+  - rendering
+  - jts
+---
+
+> **项目地址：** <https://github.com/geotools/geotools>
+>
+> **Maven GroupId：** `org.geotools`
+>
+> **最新版本：** 35.1（截至 2026-10，[OSGeo Maven 仓库](https://repo.osgeo.org/repository/release/)）
+>
+> **许可证：** LGPL 2.1
+>
+> **官方文档：** <https://docs.geotools.org/>
+
+## 概述
+
+GeoTools 是一个成熟、模块化的开源 Java GIS 工具库，由 OSGeo 基金会管理，广泛应用于 GeoServer、uDig 等知名 GIS 平台。它提供：
+
+- **矢量数据访问**：Shapefile、GeoPackage、GeoJSON、PostGIS、Oracle Spatial、SQL Server 等
+- **栅格数据访问**：GeoTIFF、NetCDF、ImageMosaic 等
+- **坐标参考系统 (CRS)**：基于 EPSG 数据库的投影定义与坐标转换
+- **空间查询与过滤**：CQL / ECQL、OGC Filter 编码
+- **地图渲染**：基于 SLD/SE 的制图样式与图片输出
+- **OGC Web 服务**：WMS / WFS / WCS 客户端
+- **几何运算**：基于 JTS Topology Suite 的全套几何计算
+
+**环境要求：** JDK 8（GeoTools ≤ 28）；JDK 11（GeoTools 29–33）；JDK 17（GeoTools 34+，当前 35.x）
+
+---
+
+## 环境准备与快速集成
+
+### Maven 仓库配置
+
+GeoTools 发布在 OSGeo Maven 仓库，需在 `pom.xml` 中添加：
+
+```xml
+<repositories>
+    <repository>
+        <id>osgeo</id>
+        <name>OSGeo Release Repository</name>
+        <url>https://repo.osgeo.org/repository/release/</url>
+    </repository>
+</repositories>
+```
+
+### 常用模块依赖
+
+```xml
+<properties>
+    <geotools.version>35.1</geotools.version><!-- 最新稳定版；版本列表见 https://geotools.org/ -->
+</properties>
+
+<dependencies>
+    <!-- 核心 -->
+    <dependency>
+        <groupId>org.geotools</groupId>
+        <artifactId>gt-main</artifactId>
+        <version>${geotools.version}</version>
+    </dependency>
+    <!-- Shapefile -->
+    <dependency>
+        <groupId>org.geotools</groupId>
+        <artifactId>gt-shapefile</artifactId>
+        <version>${geotools.version}</version>
+    </dependency>
+    <!-- GeoTIFF 栅格 -->
+    <dependency>
+        <groupId>org.geotools</groupId>
+        <artifactId>gt-geotiff</artifactId>
+        <version>${geotools.version}</version>
+    </dependency>
+    <!-- GeoPackage -->
+    <dependency>
+        <groupId>org.geotools</groupId>
+        <artifactId>gt-geopkg</artifactId>
+        <version>${geotools.version}</version>
+    </dependency>
+    <!-- EPSG 坐标系数据库（HSQL 嵌入式） -->
+    <dependency>
+        <groupId>org.geotools</groupId>
+        <artifactId>gt-epsg-hsql</artifactId>
+        <version>${geotools.version}</version>
+    </dependency>
+    <!-- PostGIS -->
+    <dependency>
+        <groupId>org.geotools.jdbc</groupId>
+        <artifactId>gt-jdbc-postgis</artifactId>
+        <version>${geotools.version}</version>
+    </dependency>
+    <!-- CQL 查询语言 -->
+    <dependency>
+        <groupId>org.geotools</groupId>
+        <artifactId>gt-cql</artifactId>
+        <version>${geotools.version}</version>
+    </dependency>
+    <!-- 地图渲染 -->
+    <dependency>
+        <groupId>org.geotools</groupId>
+        <artifactId>gt-render</artifactId>
+        <version>${geotools.version}</version>
+    </dependency>
+    <!-- GeoJSON 数据格式 -->
+    <dependency>
+        <groupId>org.geotools</groupId>
+        <artifactId>gt-geojson-core</artifactId>
+        <version>${geotools.version}</version>
+    </dependency>
+</dependencies>
+```
+
+---
+
+## 核心模块一览
+
+| 模块 | artifactId | 用途 |
+|---|---|---|
+| gt-main | `gt-main` | （推荐）核心接口与实现——Feature / DataStore / Filter |
+| gt-api | `gt-api` | 高层 API 接口定义（Feature、CRS、Filter 等） |
+| gt-referencing | `gt-referencing` | 坐标参考系统定义与转换 |
+| gt-epsg-hsql | `gt-epsg-hsql` | 嵌入式 EPSG 数据库（基于 HSQL） |
+| gt-shapefile | `gt-shapefile` | Shapefile 矢量读写 |
+| gt-geopkg | `gt-geopkg` | GeoPackage 矢量 / 栅格读写 |
+| gt-geotiff | `gt-geotiff` | GeoTIFF 栅格读写 |
+| gt-coverage | `gt-coverage` | 栅格覆盖（GridCoverage）处理 |
+| gt-cql | `gt-cql` | CQL / ECQL 查询语言解析 |
+| gt-render | `gt-render` | 地图渲染输出（PNG、SVG 等） |
+| gt-jdbc-postgis | `gt-jdbc-postgis` | PostGIS 数据库连接 |
+| gt-geojson-core | `gt-geojson-core` | GeoJSON 读写 |
+| gt-wms | `gt-wms` | OGC WMS 客户端 |
+| gt-wfs-ng | `gt-wfs-ng` | OGC WFS 客户端 |
+| gt-process | `gt-process` | 地理处理框架 |
+
+---
+
+## 核心类一览
+
+| 类 / 接口 | 包 | 用途 |
+|---|---|---|
+| `DataStore` | `org.geotools.data` | （推荐）矢量数据源的统一抽象入口 |
+| `DataStoreFinder` | `org.geotools.data` | 通过参数自动定位并创建 DataStore |
+| `FileDataStoreFinder` | `org.geotools.data` | 快速打开单文件数据源（Shapefile 等） |
+| `SimpleFeatureType` | `org.opengis.feature.simple` | 要素类型定义（字段名、类型、CRS） |
+| `SimpleFeature` | `org.opengis.feature.simple` | 单个矢量要素（属性 + 几何） |
+| `SimpleFeatureSource` | `org.geotools.data.simple` | 只读要素数据源 |
+| `SimpleFeatureStore` | `org.geotools.data.simple` | 可读写要素数据源 |
+| `SimpleFeatureCollection` | `org.geotools.data.simple` | 要素集合 |
+| `SimpleFeatureBuilder` | `org.geotools.feature.simple` | 构建 SimpleFeature 实例 |
+| `SimpleFeatureTypeBuilder` | `org.geotools.feature.simple` | 构建 SimpleFeatureType 定义 |
+| `Geometry` | `org.locationtech.jts.geom` | JTS 几何基类（Point、LineString、Polygon 等） |
+| `GeometryFactory` | `org.locationtech.jts.geom` | 创建几何对象的工厂 |
+| `JTSFactoryFinder` | `org.geotools.geometry.jts` | GeoTools 推荐的 GeometryFactory 获取方式 |
+| `JTS` | `org.geotools.geometry.jts` | JTS 几何工具类（坐标转换、Envelope 转换等） |
+| `CRS` | `org.geotools.referencing.CRS` | （推荐）坐标参考系统工具类（解码 EPSG、查找转换） |
+| `CoordinateReferenceSystem` | `org.opengis.referencing.crs` | CRS 接口 |
+| `MathTransform` | `org.opengis.referencing.operation` | 坐标转换数学变换 |
+| `Filter` | `org.opengis.filter` | OGC 过滤器接口 |
+| `CQL` | `org.geotools.filter.text.cql2` | CQL 查询语言解析器 |
+| `ECQL` | `org.geotools.filter.text.ecql` | 扩展 CQL 解析器（支持更多语法） |
+| `Style` | `org.geotools.styling` | SLD 制图样式 |
+| `SLD` | `org.geotools.styling.SLD` | 快速创建简单样式的工具类 |
+| `MapContent` | `org.geotools.map` | 地图容器（管理图层集合） |
+| `FeatureLayer` | `org.geotools.map` | 矢量图层 |
+| `GridCoverage2D` | `org.geotools.coverage.grid` | 二维栅格覆盖数据 |
+| `GeoTiffReader` | `org.geotools.gce.geotiff` | GeoTIFF 读取器 |
+| `GeoTiffWriter` | `org.geotools.gce.geotiff` | GeoTIFF 写入器 |
+| `ReferencedEnvelope` | `org.geotools.geometry.jts` | 带 CRS 的矩形范围 |
+| `DataUtilities` | `org.geotools.data` | 数据工具类（类型创建、集合转换等） |
+
+---
+
+> 矢量数据读取与写入的完整示例见 [reference/vector-io.md](reference/vector-io.md)
+
+## 坐标参考系统 (CRS) 与坐标转换
+
+```java
+import org.geotools.referencing.CRS;
+import org.geotools.geometry.jts.JTS;
+import org.opengis.referencing.crs.CoordinateReferenceSystem;
+import org.opengis.referencing.operation.MathTransform;
+
+// 解码 EPSG
+CoordinateReferenceSystem wgs84 = CRS.decode("EPSG:4326");
+CoordinateReferenceSystem webMercator = CRS.decode("EPSG:3857");
+CoordinateReferenceSystem cgcs2000 = CRS.decode("EPSG:4490");
+
+// 查找坐标转换
+MathTransform transform = CRS.findMathTransform(wgs84, webMercator, true);
+
+// 转换几何对象
+Geometry projected = JTS.transform(originalGeometry, transform);
+
+// 转换单个坐标
+Coordinate source = new Coordinate(116.4, 39.9);
+Coordinate target = JTS.transform(source, null, transform);
+
+// 获取 CRS 的 EPSG 编码
+Integer code = CRS.lookupEpsgCode(wgs84, false);
+
+// 从 WKT 创建 CRS
+CoordinateReferenceSystem custom = CRS.parseWKT("GEOGCS[...]");
+```
+
+---
+
+## 空间查询与过滤（CQL / ECQL）
+
+```java
+import org.geotools.filter.text.cql2.CQL;
+import org.geotools.filter.text.ecql.ECQL;
+import org.opengis.filter.Filter;
+
+// 属性过滤
+Filter nameFilter = CQL.toFilter("NAME = '北京'");
+Filter popFilter = CQL.toFilter("POPULATION > 1000000");
+
+// 空间过滤（BBOX）
+Filter bboxFilter = CQL.toFilter(
+    "BBOX(the_geom, 116.0, 39.0, 117.0, 40.0)"
+);
+
+// 空间关系
+Filter containsFilter = CQL.toFilter(
+    "CONTAINS(the_geom, POINT(116.4 39.9))"
+);
+Filter intersectsFilter = CQL.toFilter(
+    "INTERSECTS(the_geom, POLYGON((116 39, 117 39, 117 40, 116 40, 116 39)))"
+);
+
+// 组合过滤（ECQL 支持更丰富语法）
+Filter combined = ECQL.toFilter(
+    "NAME LIKE '北%' AND POPULATION > 500000"
+);
+
+// 应用过滤查询
+SimpleFeatureCollection filtered = featureSource.getFeatures(nameFilter);
+```
+
+---
+
+## 几何操作（基于 JTS）
+
+```java
+import org.locationtech.jts.geom.*;
+import org.geotools.geometry.jts.JTSFactoryFinder;
+
+GeometryFactory gf = JTSFactoryFinder.getGeometryFactory();
+
+// 创建几何对象
+Point point = gf.createPoint(new Coordinate(116.4, 39.9));
+LineString line = gf.createLineString(new Coordinate[]{
+    new Coordinate(0, 0), new Coordinate(10, 10), new Coordinate(20, 0)
+});
+Polygon polygon = gf.createPolygon(new Coordinate[]{
+    new Coordinate(0, 0), new Coordinate(10, 0),
+    new Coordinate(10, 10), new Coordinate(0, 10),
+    new Coordinate(0, 0)  // 闭合
+});
+
+// 缓冲区
+Geometry buffered = point.buffer(0.01);
+
+// 空间关系
+boolean contains = polygon.contains(point);
+boolean intersects = line.intersects(polygon);
+boolean within = point.within(polygon);
+
+// 集合运算
+Geometry union = polygon1.union(polygon2);
+Geometry intersection = polygon1.intersection(polygon2);
+Geometry difference = polygon1.difference(polygon2);
+Geometry symDiff = polygon1.symDifference(polygon2);
+
+// 几何属性
+double area = polygon.getArea();
+double length = line.getLength();
+Point centroid = polygon.getCentroid();
+Envelope env = polygon.getEnvelopeInternal();
+double distance = point.distance(line);
+
+// 凸包
+Geometry convexHull = geometry.convexHull();
+
+// 简化
+import org.locationtech.jts.simplify.TopologyPreservingSimplifier;
+Geometry simplified = TopologyPreservingSimplifier.simplify(geometry, 0.001);
+
+// WKT 读写
+import org.locationtech.jts.io.WKTReader;
+import org.locationtech.jts.io.WKTWriter;
+WKTReader wktReader = new WKTReader();
+Geometry geom = wktReader.read("POINT (116.4 39.9)");
+String wkt = new WKTWriter().write(geom);
+```
+
+---
+
+> 栅格数据（GeoTIFF）与地图渲染的完整示例见 [reference/raster-rendering.md](reference/raster-rendering.md)
+> GeoJSON 与 WKT/WKB 格式读写的完整示例见 [reference/vector-io.md](reference/vector-io.md)
+
+## 典型工作流：读取 → 过滤 → 重投影
+
+端到端示例（Java）：打开 Shapefile → CQL 空间+属性过滤 → 重投影到 Web Mercator：
+
+```java
+import org.geotools.data.*;
+import org.geotools.data.simple.*;
+import org.geotools.filter.text.cql2.CQL;
+import org.geotools.referencing.CRS;
+import org.geotools.geometry.jts.JTS;
+import org.opengis.filter.Filter;
+import org.opengis.referencing.operation.MathTransform;
+import org.locationtech.jts.geom.Geometry;
+
+// 1. 打开 Shapefile
+FileDataStore store = FileDataStoreFinder.getDataStore(new File("cities.shp"));
+SimpleFeatureSource source = store.getFeatureSource();
+
+// 2. CQL 过滤（属性 + 空间条件）
+Filter filter = CQL.toFilter(
+    "POPULATION > 1000000 AND BBOX(the_geom, 116, 39, 117, 40)");
+SimpleFeatureCollection features = source.getFeatures(filter);
+
+// 3. 逐要素重投影（WGS84 → EPSG:3857）
+MathTransform transform = CRS.findMathTransform(
+    source.getSchema().getCoordinateReferenceSystem(),
+    CRS.decode("EPSG:3857"), true);
+try (SimpleFeatureIterator iter = features.features()) {
+    while (iter.hasNext()) {
+        SimpleFeature f = iter.next();
+        Geometry projected = JTS.transform((Geometry) f.getDefaultGeometry(), transform);
+        // 处理/写出 projected
+    }
+}
+store.dispose();
+```
+
+写出 GeoJSON、创建 FeatureType 与写 Shapefile 的完整示例见 [reference/vector-io.md](reference/vector-io.md)。
+
+## 典型应用场景
+
+| 场景 | 关键类 / 方法 |
+|---|---|
+| 读取 Shapefile 数据 | `FileDataStoreFinder` → `SimpleFeatureSource.getFeatures()` |
+| 读写 GeoPackage | `DataStoreFinder`（dbtype=geopkg）→ `SimpleFeatureStore` |
+| 连接 PostGIS 数据库 | `DataStoreFinder`（dbtype=postgis）→ `SimpleFeatureStore` |
+| 读写 GeoJSON | `FeatureJSON.readFeatureCollection()` / `writeFeatureCollection()` |
+| 坐标系转换（如 WGS84 → Web Mercator） | `CRS.decode()` → `CRS.findMathTransform()` → `JTS.transform()` |
+| 属性查询 | `CQL.toFilter("NAME = 'xxx'")` → `featureSource.getFeatures(filter)` |
+| 空间查询（范围过滤） | `CQL.toFilter("BBOX(the_geom, ...)")` |
+| 空间关系判断（包含、相交等） | `Geometry.contains()` / `intersects()` / `within()` |
+| 缓冲区分析 | `Geometry.buffer(distance)` |
+| 面叠加分析（交集 / 合并 / 差集） | `Geometry.intersection()` / `union()` / `difference()` |
+| 读取 GeoTIFF 栅格 | `GeoTiffReader.read()` → `GridCoverage2D` |
+| 地图渲染输出 PNG | `MapContent` + `StreamingRenderer.paint()` |
+| 创建矢量要素并写入 | `SimpleFeatureTypeBuilder` → `SimpleFeatureBuilder` → `SimpleFeatureStore` |
+| SLD 样式制图 | `StyleFactory` + `PolygonSymbolizer` / `PointSymbolizer` / `LineSymbolizer` |
+
+---
+
+## 常见问题
+
+| 问题 | 解决 |
+|------|------|
+| 找不到 gt-* 依赖（无法解析） | GeoTools 不在 Maven Central，必须在 `pom.xml` 配置 OSGeo 仓库（`https://repo.osgeo.org/repository/release/`） |
+| `CRS.decode()` 抛出异常 | 引入 `gt-epsg-hsql`（嵌入式）或 `gt-epsg-wkt`（轻量）模块提供 EPSG 数据库 |
+| 经纬度顺序与预期相反 | GeoTools 默认遵循 EPSG 规范（纬度在前）；`CRS.decode("EPSG:4326", true)` 强制经度在前 |
+| 文件句柄泄漏 / 数据未写盘 | `DataStore`、`Reader`、`Writer`、`MapContent` 使用后必须 `dispose()`；`SimpleFeatureIterator` 用 try-with-resources 关闭 |
+| 多线程处理迭代器异常 | `DataStore` 线程安全可共享；`SimpleFeatureIterator` 非线程安全，每线程独立使用 |
+| `DataStoreFinder.getDataStore()` 返回 null | 确保对应模块 JAR 在 classpath（GeoTools 通过 Java SPI 自动发现工厂） |
+| 升级后包名报错 | GeoTools 20+ 使用 `org.locationtech.jts`（≤19 为 `com.vividsolutions.jts`） |
+| 大数据量查询慢 | 用 `Query` 限制返回属性与空间范围，避免全量加载；PostGIS 建议开启 `preparedStatements` |
+| Shapefile 中文乱码 | 创建 `ShapefileDataStore` 后调用 `store.setCharset(Charset.forName("GBK"))` 设置编码 |
+
+---
+
+## AI 使用建议
+
+### 推荐工作流
+
+1. **配置 Maven 仓库**：在 `pom.xml` 中添加 OSGeo 仓库（`https://repo.osgeo.org/repository/release/`）
+2. **引入必要模块**：`gt-main`（核心）、`gt-shapefile` / `gt-geopkg`（数据源）、`gt-epsg-hsql`（CRS）、`gt-cql`（查询）、`gt-render`（渲染）
+3. **打开数据源**：使用 `FileDataStoreFinder.getDataStore()`（文件）或 `DataStoreFinder.getDataStore(params)`（数据库）
+4. **执行查询**：使用 `CQL.toFilter()` 构建过滤器 → `featureSource.getFeatures(filter)`
+5. **处理结果**：遍历 `SimpleFeatureIterator`，使用 JTS 几何方法进行空间运算
+6. **释放资源**：`store.dispose()`、关闭 `SimpleFeatureIterator`
+
+### 关键注意事项
+
+- **Maven 仓库必需**：GeoTools 不在 Maven Central，必须配置 OSGeo 仓库
+- **EPSG 数据库**：使用 CRS 功能需引入 `gt-epsg-hsql`，否则 `CRS.decode()` 抛出异常
+- **资源释放**：`DataStore`、`Reader`、`Writer`、`MapContent` 使用后必须调用 `dispose()`
+- **坐标轴顺序**：GeoTools 默认遵循 EPSG 规范（纬度在前），使用 `CRS.decode("EPSG:4326", true)` 强制经度在前
+- **线程安全**：`DataStore` 线程安全可共享；`SimpleFeatureIterator` 非线程安全
+- **JTS 包名**：GeoTools 20+ 使用 `org.locationtech.jts`（GeoTools ≤19 为旧版 `com.vividsolutions.jts`）
+
+## 相关技能
+
+- **jts** — JTS Topology Suite（GeoTools 几何计算核心）：[../jts/SKILL.md](../jts/SKILL.md)
+- **geoserver** — 基于 GeoTools 的地图服务器：[../geoserver/SKILL.md](../geoserver/SKILL.md)
+- **postgis** — 空间数据库：[../postgis/SKILL.md](../postgis/SKILL.md)
+- **opengis-utils-for-java** — Java GIS 统一工具包：[../opengis-utils-for-java/SKILL.md](../opengis-utils-for-java/SKILL.md)
+- **geometry-api-java** — Esri Geometry API：[../geometry-api-java/SKILL.md](../geometry-api-java/SKILL.md)
+
+## 参考资源
+
+- **GitHub 仓库：** <https://github.com/geotools/geotools>
+- **官方文档：** <https://docs.geotools.org/>
+- **用户指南：** <https://docs.geotools.org/stable/userguide/>
+- **Javadoc：** <https://docs.geotools.org/stable/javadocs/>
+- **教程（Quickstart）：** <https://docs.geotools.org/stable/userguide/tutorial/quickstart/index.html>
+- **OSGeo Maven 仓库：** <https://repo.osgeo.org/repository/release/>
+- **JTS Topology Suite：** <https://github.com/locationtech/jts>

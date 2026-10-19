@@ -1,0 +1,91 @@
+{
+  "name": "@dsh-gis/dsh-opengis-skill",
+  "version": "0.1.0",
+  "description": "OpenGIS skill pack for DeepSeek Harness: 32 GIS skills from opengis-skills (GDAL, QGIS, GeoServer, PostGIS, JTS, CesiumJS, OpenLayers and more), loaded on demand.",
+  "type": "module",
+  "main": "lib/index.js",
+  "types": "lib/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./lib/index.d.ts",
+      "default": "./lib/index.js"
+    },
+    "./skill-file": {
+      "types": "./lib/skill-file.d.ts",
+      "default": "./lib/skill-file.js"
+    },
+    "./cordis.patch.yml": "./cordis.patch.yml",
+    "./locale/*.json": "./locale/*.json",
+    "./icon": "./icon.svg",
+    "./package.json": "./package.json"
+  },
+  "icon": "./icon.svg",
+  "files": [
+    "lib",
+    "assets",
+    "cordis.patch.yml",
+    "locale/*.json",
+    "icon.svg",
+    "upstream.json",
+    "README.md",
+    "THIRD_PARTY_NOTICES.md"
+  ],
+  "engines": {
+    "dsh": ">=0.2.1-rc.2 <0.3.0-0",
+    "node": ">=22"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  },
+  "scripts": {
+    "sync": "node scripts/sync-opengis-skills.mjs",
+    "sync:check": "node scripts/sync-opengis-skills.mjs --check",
+    "validate": "node scripts/validate-skills.mjs",
+    "test": "node --test",
+    "prepublishOnly": "npm run validate && npm test"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/znlgis/dsh-opengis-skill.git"
+  },
+  "homepage": "https://github.com/znlgis/dsh-opengis-skill#readme",
+  "bugs": {
+    "url": "https://github.com/znlgis/dsh-opengis-skill/issues"
+  },
+  "keywords": [
+    "deepseek-harness",
+    "dsh",
+    "dsh-plugin",
+    "cordis",
+    "skills",
+    "skill-pack",
+    "gis",
+    "geospatial",
+    "opengis",
+    "gdal",
+    "ogr",
+    "qgis",
+    "pyqgis",
+    "geoserver",
+    "mapserver",
+    "postgis",
+    "proj",
+    "pdal",
+    "grass-gis",
+    "jts",
+    "geopandas",
+    "shapely",
+    "cesiumjs",
+    "openlayers",
+    "leaflet",
+    "mapbox-gl-js",
+    "deck-gl"
+  ],
+  "license": "MIT",
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
+  }
+}

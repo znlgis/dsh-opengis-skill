@@ -2,21 +2,44 @@
 
 ## opengis-skills
 
-The skill instructions under `assets/` are copied verbatim from the
+The skill instructions under `assets/` are copied from the
 [opengis-skills](https://github.com/znlgis/opengis-skills) repository
 (`gis/` category), which is licensed under the MIT License:
 
-> MIT License
->
-> Copyright (c) 2024-2026 znlgis
+```text
+MIT License
+
+Copyright (c) 2024-2026 znlgis
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```
 
 The exact upstream commit, sync time, and the list of vendored skills are
 recorded in [`upstream.json`](./upstream.json); the copy is performed by
-[`scripts/sync-opengis-skills.mjs`](./scripts/sync-opengis-skills.mjs). The
-skills are documentation: each one describes an independent open-source project
-(GDAL, QGIS, GeoServer, PostGIS, JTS, CesiumJS, OpenLayers, and others) and
-links to that project's own repository, documentation, and license. Those
-projects keep their own licenses; nothing in this package re-licenses them.
+`scripts/sync-opengis-skills.mjs`, which lives in the source repository
+(<https://github.com/znlgis/dsh-opengis-skill>) and is not part of the
+published package. Text files are vendored with LF line endings so the
+snapshot matches the upstream git blob on every platform. The skills are
+documentation: each one describes an independent open-source project (GDAL,
+QGIS, GeoServer, PostGIS, JTS, CesiumJS, OpenLayers, and others) and links to
+that project's own repository, documentation, and license. Those projects
+keep their own licenses; nothing in this package re-licenses them.
 
 ## DeepSeek Harness
 

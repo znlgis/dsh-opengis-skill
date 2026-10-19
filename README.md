@@ -6,7 +6,7 @@ DeepSeek Harness 的 **OpenGIS 技能包插件**：把 [opengis-skills](https://
 
 - **32 个 GIS 技能**：GDAL、GDAL API、QGIS（qgis_process / PyQGIS / QGIS Server）、GeoServer（含 REST API 与 Cloud）、MapServer、PostGIS、PROJ、PDAL、GRASS GIS、JTS、NetTopologySuite、Esri Geometry API（Java/.NET）、Shapely、GeoPandas、GeoPipeAgent、OpenGisDAF、CesiumJS、OpenLayers、Leaflet、Mapbox GL JS、deck.gl、SharpMap、Mapsui、GeoTools、OpenGIS Utils（Java/.NET）、opengis-all 全流程索引。
 - **按需加载**：注册的是 skill provider（`ctx.skills.registerProvider`），发现阶段只读 frontmatter；正文每次加载时读取，参考资料（`reference/*.md`）通过技能目录（resource base）相对解析。
-- **零运行时依赖**：只用 Node 内置模块，npm 包内自带全部资产（约 640 KB），不 import DSH 内部包。
+- **零运行时依赖**：只用 Node 内置模块，npm 包内自带全部资产（约 660 KB），不 import DSH 内部包。
 - **可同步上游**：`npm run sync` 从 opengis-skills 检出复制资产，记录上游 commit 到 `upstream.json`，并重新生成本文下方技能表。
 - **可启停**：单包同时是 bundle 与插件（`dsh.bundle.patch` 插入自身行），在 Plugins 里启用/停用即可。
 
@@ -87,7 +87,7 @@ npm run sync -- --from ../opengis-skills
 npm run sync:check -- --from ../opengis-skills
 ```
 
-同步脚本会：逐文件复制 `gis/<skill>/`（不含任何改写）、校验 frontmatter（name 必须为 kebab-case 且与目录同名）、清理上游已删除的技能目录、更新 `upstream.json`（仓库地址、commit、同步时间、技能清单）以及本文的技能表。
+同步脚本会：逐文件复制 `gis/<skill>/`（文本统一为 LF，保证与上游 git blob 跨平台字节一致）、校验 frontmatter（name 必须为 kebab-case 且与目录同名）、清理上游已删除的技能目录、更新 `upstream.json`（仓库地址、commit、同步时间、技能清单）以及本文的技能表。
 
 ## 开发
 
@@ -123,8 +123,8 @@ dsh-opengis-skill/
 
 ## 与 @dsh-gis 其他插件的关系
 
-- ```dsh-gis/dsh-gis`：GIS 工具与地图界面（inspect/query/CRS/OGC/UI）。
-- ```dsh-gis/dsh-prompt-gis`：一段 GIS system-prompt 与两个内联技能（`gis-inspect-first`、`gis-query-patterns`）。
+- `@dsh-gis/dsh-gis`：GIS 工具与地图界面（inspect/query/CRS/OGC/UI）。
+- `@dsh-gis/dsh-prompt-gis`：一段 GIS system-prompt 与两个内联技能（`gis-inspect-first`、`gis-query-patterns`）。
 - 本包：纯知识型技能包（32 个 GIS 技能），不提供工具，可与上述插件同时安装。
 
 ## 许可

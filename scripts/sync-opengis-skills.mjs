@@ -10,14 +10,16 @@
  * --check  compare the checkout with `assets/` without writing; exits non-zero
  *          on drift, so CI can detect an unsynced pack.
  *
- * The script copies each `gis/<skill>/` directory verbatim (SKILL.md plus its
- * reference files), validates the frontmatter, prunes skills that upstream
+ * The script copies each `gis/<skill>/` directory (SKILL.md plus its reference
+ * files), normalizing text files to LF so the vendored snapshot matches the
+ * upstream git blob on every platform, then validates the frontmatter and prunes
+ * skills that upstream
  * removed, refreshes `upstream.json`, and regenerates the skill table between
  * the `skills:start` / `skills:end` markers in README.md.
  */
 
 import { execFileSync } from "node:child_process";
-import { cpSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseSkillFile } from "../lib/skill-file.js";
@@ -69,6 +71,31 @@ const previous = existsSync(upstreamFile) ? JSON.parse(readFileSync(upstreamFile
 const current = new Set(skills.map((skill) => skill.name));
 const stale = (previous.skills ?? []).filter((skillName) => !current.has(skillName));
 
+/**
+ * Normalize a vendored text file to LF. An upstream checkout on Windows can
+ * carry CRLF through `core.autocrlf` while the upstream git blob is LF; writing
+ * the blob form keeps the vendored snapshot byte-stable across platforms. Files
+ * containing NUL bytes are treated as binary and copied unchanged.
+ */
+function canonicalBytes(buffer) {
+	if (buffer.includes(0)) return buffer;
+	return Buffer.from(buffer.toString("utf8").replaceAll("\r\n", "\n"), "utf8");
+}
+
+/** Copy one skill directory recursively, normalizing text files to LF. */
+function copySkillTree(sourceDirectory, targetDirectory) {
+	mkdirSync(targetDirectory, { recursive: true });
+	for (const entry of readdirSync(sourceDirectory, { withFileTypes: true })) {
+		const sourcePath = join(sourceDirectory, entry.name);
+		const targetPath = join(targetDirectory, entry.name);
+		if (entry.isDirectory()) {
+			copySkillTree(sourcePath, targetPath);
+			continue;
+		}
+		writeFileSync(targetPath, canonicalBytes(readFileSync(sourcePath)));
+	}
+}
+
 /** Compare every file of one source skill with its vendored copy. */
 function inSync(skill) {
 	const target = join(assetsRoot, skill.name);
@@ -84,7 +111,7 @@ function inSync(skill) {
 				continue;
 			}
 			if (!existsSync(targetPath)) return false;
-			if (!readFileSync(sourcePath).equals(readFileSync(targetPath))) return false;
+			if (!canonicalBytes(readFileSync(sourcePath)).equals(canonicalBytes(readFileSync(targetPath)))) return false;
 		}
 	}
 	return true;
@@ -110,7 +137,7 @@ for (const skillName of stale) {
 for (const skill of skills) {
 	const target = join(assetsRoot, skill.name);
 	rmSync(target, { recursive: true, force: true });
-	cpSync(skill.directory, target, { recursive: true });
+	copySkillTree(skill.directory, target);
 }
 
 let commit;

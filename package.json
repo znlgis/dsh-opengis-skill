@@ -1,6 +1,6 @@
 {
   "name": "@dsh-gis/dsh-opengis-skill",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "OpenGIS skill pack for DeepSeek Harness: the gis/ skills from opengis-skills (GDAL, QGIS, GeoServer, PostGIS, JTS, CesiumJS, OpenLayers and more), loaded on demand.",
   "type": "module",
   "main": "lib/index.js",

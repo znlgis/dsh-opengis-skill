@@ -5,6 +5,37 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.3] - 2026-10-20
+
+### Added
+
+- Every GIS skill now ends with a `## DeepSeek Harness 使用建议` section covering skill
+  loading and reference reads, shell-tool mapping (`pwsh` and `run_code`), version
+  probes, artifact verification, and permission/secret handling. Generic "AI 使用建议"
+  sections were replaced rather than duplicated, so most skills got shorter.
+- Descriptions rewritten for skill discovery: concrete commands, package coordinates,
+  formats, and error symptoms, still starting with "Use when" and within the upstream
+  500-character limit.
+
+### Changed
+
+- Synced the vendored GIS skills to opengis-skills commit `4b64b89`; version claims
+  re-verified against upstream releases on 2026-10-20.
+- GeoServer (plus `geoserver-rest-api` and the `opengis-all` image tag) 3.0.1 → 3.0.2:
+  SourceForge binary URL, Docker tag, Java 17/21 prerequisite, and the 2026-10-19
+  security-release note.
+- GeoServer Cloud 3.0.1.1 → 3.0.2 and Helm chart `geoservercloud` 3.0.1 → 3.0.2.
+- GeoTools 35.1 → 35.2 (JDK 17); NetTopologySuite notes now pin IO.GeoJSON 4.0.0,
+  IO.Esri.Shapefile 1.2.0, and ProjNet 2.1.0.
+
+### Fixed
+
+- QGIS Server guidance probes the installed QGIS version instead of assuming a
+  `qgis_mapserver --version` binary; Cesium no longer asserts a 1.150 removal date;
+  Mapsui notes that 5.2.0-beta.1 is a prerelease.
+- Escaped inner quotes in rewritten frontmatter descriptions so the strict DSH
+  frontmatter parser accepts every skill.
+
 ## [0.1.2] - 2026-10-19
 
 ### Added

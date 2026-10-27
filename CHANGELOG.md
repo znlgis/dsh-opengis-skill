@@ -5,6 +5,46 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.0] - 2026-10-27
+
+### Added
+
+- A dedicated DeepSeek Harness adaptation layer under `adaptations/`, appended by the
+  provider when a skill is loaded: `common.md` carries the conventions every skill
+  needs (tool mapping, Windows rewrites, version probes, artifact verification,
+  background jobs, sandbox and secret handling) and `<skill>.md` carries the
+  skill-specific guidance (which reference file to read, where commands run, what to
+  probe, what to verify, what needs consent). Vendored bodies stay byte-identical to
+  upstream, so the SHA-256 manifest and `sync:check` keep working.
+- Eight newly synced GIS skills: `brutile`, `duckdb-spatial`, `geolibre`,
+  `geonode`, `kepler-gl`, `projnet4geoapi`, `spatialite`, and `whitebox-tools`
+  (32 → 40 skills).
+- `npm run check:adaptations` validates the adaptation layer alone and accepts skill
+  names, so one file can be checked while the rest are still being written; `npm run
+  validate` now also checks adaptation coverage, structure, length, and relative
+  links resolved against the skill directory.
+- `test/adaptations.test.mjs` and expanded provider tests cover the composed content
+  order, coverage of every skill, and structural rejections.
+
+### Changed
+
+- Synced the vendored GIS skills to opengis-skills commit `6562616`, which decoupled
+  the upstream repository from any single agent runtime and therefore removed the
+  `## DeepSeek Harness 使用建议` sections from the bodies. The guidance now lives in
+  `adaptations/` instead of inside the vendored snapshot, so future syncs no longer
+  have to rewrite upstream content.
+- Skill bodies and descriptions refreshed by upstream (versions, new skills, release
+  notes); all 40 skills keep their upstream frontmatter.
+- `package.json` ships `adaptations/`, bumps to 0.2.0, and expands the keyword list.
+
+### Fixed
+
+- The frontmatter reader now accepts upstream descriptions that carry unescaped inner
+  double quotes (invalid YAML, written by upstream long descriptions), taking the text
+  between the outermost quotes and keeping unknown escapes literal; block scalars and
+  unterminated values still fail with a readable error. This removes the parity
+  failure that blocked syncing commit `6562616`.
+
 ## [0.1.3] - 2026-10-20
 
 ### Added

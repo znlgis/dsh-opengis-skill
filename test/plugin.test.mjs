@@ -3,6 +3,7 @@ import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
+import { listAdaptations, COMMON_HEADING, SKILL_HEADING } from "../lib/adaptations.js";
 import { hashFiles, listFiles } from "../lib/catalog.js";
 import { apply, inject, name } from "../lib/index.js";
 import { findMarkdownLinkProblems } from "../lib/markdown-links.js";
@@ -71,13 +72,35 @@ test("loading returns the current body without frontmatter", async () => {
 		const parsed = readParsed(candidate);
 		assert.equal(definition.name, candidate.name);
 		assert.equal(definition.description, parsed.description);
-		assert.equal(definition.content, parsed.content);
+		assert.ok(definition.content.startsWith(parsed.content), "the vendored body must be kept verbatim at the start");
+		const guidance = definition.content.indexOf(SKILL_HEADING);
+		const common = definition.content.indexOf(COMMON_HEADING);
+		assert.ok(guidance > parsed.content.length - 1, "the per-skill DSH guidance must follow the body");
+		assert.ok(common > guidance, "the shared DSH guidance must come last");
+		assert.ok(definition.content.endsWith("\n"), "loaded content must end with a newline");
 		assert.ok(!definition.content.startsWith("---"), "frontmatter must be stripped");
 		assert.equal(definition.provider, "opengis");
 		assert.equal(definition.source, "opengis");
 		assert.equal(definition.path, candidate.locator);
 		assert.deepEqual(definition.resourceBase, candidate.resourceBase);
 		assert.equal(Object.hasOwn(definition, "rank"), false, "a definition must not carry the catalog rank");
+	}
+});
+
+test("every bundled skill ships DSH guidance and every adaptation belongs to a skill", async () => {
+	const provider = loadProvider();
+	const candidates = await provider.list({ signal: new AbortController().signal });
+	const files = listAdaptations(join(root, "adaptations"));
+	assert.ok(files.includes("common"), "adaptations/common.md is required");
+	assert.deepEqual(
+		files.filter((name) => name !== "common"),
+		candidates.map((candidate) => candidate.name).sort(),
+		"adaptations/ must hold exactly one file per bundled skill"
+	);
+	for (const candidate of candidates) {
+		const definition = await provider.get(candidate, { signal: new AbortController().signal });
+		assert.ok(definition.content.includes(SKILL_HEADING), candidate.name + " must carry the per-skill DSH guidance");
+		assert.ok(definition.content.includes(COMMON_HEADING), candidate.name + " must carry the shared DSH guidance");
 	}
 });
 

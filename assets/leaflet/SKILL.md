@@ -22,7 +22,7 @@ tags:
 >
 > **示例：** <https://leafletjs.com/examples.html>
 >
-> **最新版本：** 1.9.4（截至2026-10，npm `leaflet`）
+> **最新版本：** 1.9.4（截至 2026-10，npm `leaflet`）
 >
 > **许可证：** BSD-2-Clause
 
@@ -187,18 +187,41 @@ map.off('mousemove', handler); // 显式移除，避免内存泄漏
 
 ## 典型工作流
 
+以「底图 + GeoJSON 点位 + 弹窗 + 图层切换」为例：输入 `data/poi.geojson`（`[lng, lat]`），输出可缩放、可点选、可切层的单页地图。
+
 1. **初始化地图**：`L.map('map', { center, zoom })`，容器须有确定高度
 2. **添加底图**：`L.tileLayer(urlTemplate, { attribution }).addTo(map)`
-3. **叠加数据**：`L.marker` 或 `L.geoJSON(data, { style, onEachFeature })`
+3. **叠加数据**：`L.geoJSON(data, { style, pointToLayer, onEachFeature })`
 4. **绑定交互**：`layer.bindPopup()` / `map.on('click', fn)`
 5. **图层管理**：`L.control.layers(baseLayers, overlays).addTo(map)`
 6. **自适应视图**：`map.fitBounds(layer.getBounds())`
 7. **销毁清理**：组件卸载时调用 `map.remove()`
 
 ```javascript
-const layer = L.geoJSON(data).addTo(map);
-map.fitBounds(layer.getBounds(), { padding: [20, 20] });
+const map = L.map('map', { center: [39.9042, 116.4074], zoom: 11 });
+
+const osm = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  maxZoom: 19,
+  attribution: '&copy; OpenStreetMap contributors'
+}).addTo(map);
+
+// GeoJSON 坐标是 [lng, lat]，Leaflet 需要 [lat, lng]
+fetch('/data/poi.geojson')
+  .then((r) => r.json())
+  .then((geojson) => {
+    const poiLayer = L.geoJSON(geojson, {
+      pointToLayer: (feature, latlng) => L.circleMarker(latlng, { radius: 6, color: '#e74c3c' }),
+      onEachFeature: (feature, layer) => {
+        layer.bindPopup(feature.properties.name);
+      }
+    }).addTo(map);
+
+    map.fitBounds(poiLayer.getBounds(), { padding: [20, 20] });
+    L.control.layers({ OSM: osm }, { POI: poiLayer }).addTo(map);
+  });
 ```
+
+**验收**：页面先出现 OSM 底图，数据加载后视野自动收缩到点位范围，点击圆点弹出名称；右上角图层控件可切换 POI 显隐。
 
 ---
 
@@ -327,13 +350,15 @@ export default function MapView() {
 
 ---
 
-## 参考资源
+## AI 使用建议
 
-- 官方文档：<https://leafletjs.com/>
-- API 参考：<https://leafletjs.com/reference.html>
-- 官方示例：<https://leafletjs.com/examples.html>
-- 插件列表：<https://leafletjs.com/plugins.html>
-- 源码仓库：<https://github.com/Leaflet/Leaflet>
+- **执行环境**：`npm install`、`npm run build` 在终端中执行；纯静态页面可用 `python -m http.server 5173` 起服务（`python` 不存在时用 `py -3`）。
+- **先探测版本**：`npm ls leaflet`（未装则 `npm view leaflet version`）；本技能按 1.9.4 编写，CDN 的 `integrity` SRI 哈希只对应 1.9.4，换版本必须同步换哈希。
+- **验证产物**：构建后 `curl.exe -I http://localhost:5173/assets/<入口>.js` 确认 200；联网时还可 `curl.exe -I https://unpkg.com/leaflet@1.9.4/dist/leaflet.js` 核对 CDN 版本；AI 助手通常看不到浏览器画面，把 URL 和“应看到瓦片与标记”交给用户，环境支持读图时用截图核对。
+- **图标与坐标**：npm + 打包器下默认 marker 图标会 404，需显式设置 `L.Icon.Default` 的 `iconUrl`/`iconRetinaUrl`/`shadowUrl`；坐标一律 `[lat, lng]`，GeoJSON 是 `[lng, lat]`。
+- **生命周期**：SPA 卸载必须 `map.remove()` 并解绑自定义事件；容器隐藏或尺寸变化后 `map.invalidateSize()`。
+- **常见症状**：地图区域空白多为容器没设高度；`L is not defined` 是脚本顺序或 CDN 失败；漏引 `leaflet.css` 会导致控件错位。
+- **安全与权限**：装包、起服务、改端口前先征得用户同意；天地图等瓦片服务的 `tk` 不要硬编码进提交的前端代码。
 
 ## 相关技能
 
@@ -341,13 +366,10 @@ export default function MapView() {
 - **cesiumjs** — 三维地球与 3D Tiles 可视化：[../cesiumjs/SKILL.md](../cesiumjs/SKILL.md)
 - **geoserver** — 发布 WMS/WFS/瓦片服务作为 Leaflet 数据源：[../geoserver/SKILL.md](../geoserver/SKILL.md)
 
-## DeepSeek Harness 使用建议
+## 参考资源
 
-- **加载与引用**：用 `skill("leaflet")` 加载（用户也可输入 `/leaflet`）；本技能无 reference 子目录，示例代码直接落到会话工作区工程，技能目录只读。
-- **执行环境**：`npm install`、`npm run build` 交给 `pwsh`；纯静态页面可用 `python -m http.server 5173` 起服务（`python` 不存在时用 `py -3`）。
-- **先探测版本**：`npm ls leaflet`（未装则 `npm view leaflet version`）；本技能按 1.9.4 编写，CDN 的 `integrity` SRI 哈希只对应 1.9.4，换版本必须同步换哈希。
-- **验证产物**：构建后 `curl.exe -I http://localhost:5173/assets/<入口>.js` 确认 200；联网时还可 `curl.exe -I https://unpkg.com/leaflet@1.9.4/dist/leaflet.js` 核对 CDN 版本；DSH 不打开浏览器，把 URL 和“应看到瓦片与标记”交给用户，有截图再用 `read_image`。
-- **图标与坐标**：npm + 打包器下默认 marker 图标会 404，需显式设置 `L.Icon.Default` 的 `iconUrl`/`iconRetinaUrl`/`shadowUrl`；坐标一律 `[lat, lng]`，GeoJSON 是 `[lng, lat]`。
-- **生命周期**：SPA 卸载必须 `map.remove()` 并解绑自定义事件；容器隐藏或尺寸变化后 `map.invalidateSize()`。
-- **常见症状**：地图区域空白多为容器没设高度；`L is not defined` 是脚本顺序或 CDN 失败；漏引 `leaflet.css` 会导致控件错位。
-- **安全与权限**：装包、起服务、改端口前先征得用户同意；天地图等瓦片服务的 `tk` 不要硬编码进提交的前端代码。
+- 官方文档：<https://leafletjs.com/>
+- API 参考：<https://leafletjs.com/reference.html>
+- 官方示例：<https://leafletjs.com/examples.html>
+- 插件列表：<https://leafletjs.com/plugins.html>
+- 源码仓库：<https://github.com/Leaflet/Leaflet>

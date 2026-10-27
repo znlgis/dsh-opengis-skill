@@ -83,6 +83,20 @@ test("rejects block scalars instead of silently truncating them", () => {
 	assert.throws(() => parseSkillFile(raw, "block/SKILL.md"), /multi-line block scalars are not supported/u);
 });
 
+test("tolerates unescaped inner quotes the way upstream writes long descriptions", () => {
+	const raw = '---\nname: geopipe-agent\ndescription: "Use when building pipelines — also for validate "not registered" errors, {"workspace":{...}} JSON, and \\d regexes; no \\q escape is decoded."\n---\n\nbody\n';
+	const parsed = parseSkillFile(raw, "geopipe-agent/SKILL.md");
+	assert.equal(
+		parsed.description,
+		'Use when building pipelines — also for validate "not registered" errors, {"workspace":{...}} JSON, and \\d regexes; no \\q escape is decoded.'
+	);
+});
+
+test("rejects a quoted scalar that does not close with a quote", () => {
+	const raw = '---\nname: valid\ndescription: "open tail without a closing quote\n---\nbody';
+	assert.throws(() => parseSkillFile(raw, "no-close/SKILL.md"), /malformed or unterminated double-quoted scalar/u);
+});
+
 test("rejects unsupported escape sequences", () => {
 	const raw = String.raw`---
 name: bad-escape

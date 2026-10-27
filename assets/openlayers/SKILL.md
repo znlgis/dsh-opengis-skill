@@ -21,7 +21,7 @@ tags:
 >
 > **示例：** <https://openlayers.org/en/latest/examples/>
 >
-> **最新版本：** 10.11.0（截至2026-10，npm `ol`）
+> **最新版本：** 10.11.0（截至 2026-10，npm `ol`）
 >
 > **许可证：** BSD-2-Clause
 
@@ -226,12 +226,70 @@ new VectorLayer({ source: clusterSource, style: clusterStyleFn });
 
 ## 典型工作流
 
-1. **创建 Map**：`new Map({ target, layers, view })` → 设置投影和初始中心
+以「底图 + GeoJSON 行政区 + 绘制编辑」为例，输入 `public/data/districts.geojson`，输出可浏览、可勾绘的面图层页面。
+
+1. **创建 Map**：`new Map({ target, layers, view })` → `new View({ center: fromLonLat([116.39, 39.9]), zoom: 10 })`
 2. **添加底图**：`TileLayer` + `OSM`/`XYZ`/`TileWMS` Source
-3. **加载矢量数据**：`VectorLayer` + `VectorSource` + `GeoJSON`/`MVT` Format
-4. **应用样式**：使用 `Style` 函数按属性动态渲染
+3. **加载矢量数据**：`VectorLayer` + `VectorSource` + `GeoJSON` Format
+4. **应用样式**：`layer.setStyle(fn)` 按属性动态渲染（不设样式矢量图层不渲染）
 5. **添加交互**：`Draw`/`Modify`/`Select`/`Snap` Interaction
-6. **性能优化**：`declutter` 避让标注、`renderMode: 'image'` 静态图层
+6. **导出结果**：`geojson.writeFeatures(source.getFeatures())` 落盘
+7. **性能优化**：`declutter` 避让标注、`renderMode: 'image'` 静态图层
+
+```js
+import Map from 'ol/Map.js';
+import View from 'ol/View.js';
+import TileLayer from 'ol/layer/Tile.js';
+import OSM from 'ol/source/OSM.js';
+import VectorLayer from 'ol/layer/Vector.js';
+import VectorSource from 'ol/source/Vector.js';
+import GeoJSON from 'ol/format/GeoJSON.js';
+import { fromLonLat } from 'ol/proj.js';
+import { Style, Fill, Stroke, Text } from 'ol/style.js';
+import Draw from 'ol/interaction/Draw.js';
+
+// 显式 dataProjection / featureProjection，避免 4326 数据直接落在 3857 视图上偏移
+const geojson = new GeoJSON({
+  dataProjection: 'EPSG:4326',
+  featureProjection: 'EPSG:3857'
+});
+
+const vectorLayer = new VectorLayer({
+  source: new VectorSource({
+    url: '/data/districts.geojson',
+    format: geojson
+  }),
+  style: (feature) => new Style({
+    fill: new Fill({ color: 'rgba(70,130,180,0.25)' }),
+    stroke: new Stroke({ color: '#4682b4', width: 1.5 }),
+    text: new Text({
+      text: feature.get('name'),
+      font: '12px sans-serif',
+      overflow: true
+    })
+  })
+});
+
+const map = new Map({
+  target: 'map',
+  layers: [new TileLayer({ source: new OSM() }), vectorLayer],
+  view: new View({ center: fromLonLat([116.39, 39.9]), zoom: 9 })
+});
+
+// 直接在同一个矢量图层上绘制；画完把全部要素序列化回 EPSG:4326
+const drawSource = vectorLayer.getSource();
+map.addInteraction(new Draw({ source: drawSource, type: 'Polygon' }));
+
+drawSource.on('addfeature', () => {
+  const text = geojson.writeFeatures(drawSource.getFeatures(), {
+    dataProjection: 'EPSG:4326',
+    featureProjection: 'EPSG:3857'
+  });
+  console.log(text);           // 可直接提交给后端保存
+});
+```
+
+**验证产物**：`npm run build` 后打开页面，底图与行政区面同时显示；再画一个多边形，控制台应输出对应 GeoJSON（坐标已转回 EPSG:4326）。
 
 ---
 
@@ -259,12 +317,11 @@ new VectorLayer({ source: clusterSource, style: clusterStyleFn });
 
 ---
 
-## DeepSeek Harness 使用建议
+## AI 使用建议
 
-- **加载与引用**：用 `skill("openlayers")` 加载（用户也可输入 `/openlayers`）；本技能无 reference 子目录，示例代码直接写进会话工作区工程，技能目录只读。
-- **执行环境**：`npm install`、`npm run build` 交给 `pwsh`；Windows 下 `npm` 是 `npm.cmd`，长构建用后台作业并把输出落盘再读。
+- **执行环境**：`npm install`、`npm run build` 在终端中执行；Windows 下 `npm` 是 `npm.cmd`，长构建放后台运行并把输出落盘再读。
 - **先探测版本**：`npm ls ol`（未装则 `npm view ol version`）；本技能按 10.11.0 编写，只使用 `ol/Map.js`、`ol/layer/Tile.js` 等 ESM 子路径，旧版 `ol.source.*` 全量命名空间写法不要混用。
-- **验证产物**：`npm run build` 后用 `npx serve dist`（或 `python -m http.server 5173 -d dist`）起静态服务，`curl.exe -I http://localhost:5173/` 与打包出的 `assets/*.js` 应为 200；DSH 不打开浏览器，请用户看页面与控制台，有截图再用 `read_image`。
+- **验证产物**：`npm run build` 后用 `npx serve dist`（或 `python -m http.server 5173 -d dist`）起静态服务，`curl.exe -I http://localhost:5173/` 与打包出的 `assets/*.js` 应为 200；AI 助手通常看不到浏览器画面，请用户看页面与控制台，环境支持读图时用截图核对。
 - **投影**：经纬度必须 `fromLonLat()` 转 EPSG:3857，自定义投影先 `register(proj4)`；否则中心点偏移或图层不显示。
 - **图层样式**：矢量图层不设样式默认不渲染，务必 `setStyle()`；MVT 源要用 `MVT({ featureClass: Feature })` 才能保留属性。
 - **常见症状**：WMS 空白先查 CORS、`LAYERS` 全名与 `SRS`；`ol/...` 模块找不到说明打包器没按 ESM 解析；容器尺寸变化后调用 `map.updateSize()`。

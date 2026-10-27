@@ -43,7 +43,7 @@ GeoServer Cloud（GS Cloud）：
 | 服务 | 镜像 | 用途 |
 |------|------|------|
 | `gateway` | `geoservercloud/geoserver-cloud-gateway` | 网关 |
-| `discovery` | `geoservercloud/geoserver-cloud-discovery` | 服务发现（3.x 的官方 compose 改用 `hashicorp/consul`） |
+| `discovery` | —（3.x 不再发布该镜像） | 服务发现：官方 compose/K8s 改用 `hashicorp/consul`，`geoservercloud/geoserver-cloud-discovery:3.0.2` 在 Docker Hub 已 404 |
 | `config` | `geoservercloud/geoserver-cloud-config` | 配置中心 |
 | `web-ui` | `geoservercloud/geoserver-cloud-webui` | 管理界面 |
 | `rest` | `geoservercloud/geoserver-cloud-rest` | REST API |
@@ -198,17 +198,6 @@ docker run -e SPRING_PROFILES_ACTIVE=datadir \
 
 ---
 
-## 常见问题
-
-| 问题 | 解决 |
-|------|------|
-| 配置不同步 | 检查 RabbitMQ 可达 + `GEOSERVER_BUS_ENABLED=true` |
-| Web UI 改了 wms 没生效 | 检查事件订阅 |
-| 启动顺序错乱 | `depends_on` + 健康检查；K8s 用 `initContainers` |
-| OOM | 调整 `-Xmx`，按服务独立资源 |
-| Gateway 502 / 服务不可达 | 检查目标服务健康状态与 Consul 注册（服务名解析：`wms`、`wfs` 等） |
-| 瓦片 404 / 缓存未命中 | 确认 gwc 服务已部署、`GEOSERVER_BASE_PATH` 与请求路径一致，必要时重新 seed |
-
 ---
 
 ## 典型工作流
@@ -247,10 +236,20 @@ kubectl -n gis get deploy | grep wms
 kubectl -n gis scale deploy <wms-deployment> --replicas=10
 ```
 
-## DeepSeek Harness 使用建议
+## 常见问题
 
-- **加载与引用**：`skill("geoserver-cloud")` 加载；技能目录只读，compose/values 覆写文件写到会话工作区。
-- **执行环境**：命令交给 dsh 的 `pwsh`（Windows 无 `wget`，改 `curl.exe -LO`）；先用 `docker version`、`helm version`、`kubectl version --client` 确认工具在 PATH。
+| 问题 | 解决 |
+|------|------|
+| 配置不同步 | 检查 RabbitMQ 可达 + `GEOSERVER_BUS_ENABLED=true` |
+| Web UI 改了 wms 没生效 | 检查事件订阅 |
+| 启动顺序错乱 | `depends_on` + 健康检查；K8s 用 `initContainers` |
+| OOM | 调整 `-Xmx`，按服务独立资源 |
+| Gateway 502 / 服务不可达 | 检查目标服务健康状态与 Consul 注册（服务名解析：`wms`、`wfs` 等） |
+| 瓦片 404 / 缓存未命中 | 确认 gwc 服务已部署、`GEOSERVER_BASE_PATH` 与请求路径一致，必要时重新 seed |
+
+## AI 使用建议
+
+- **执行环境**：命令在终端 / shell 中执行（Windows 无 `wget`，改 `curl.exe -LO`）；先用 `docker version`、`helm version`、`kubectl version --client` 确认工具在 PATH。
 - **先探测版本**：`curl.exe -s -u admin:geoserver http://localhost:9090/geoserver/cloud/rest/about/version.json` 读 GeoServer 版本；`curl.exe -s http://localhost:9090/actuator/health` 取 `{"status":"UP"}`（被 profile 关掉时改用 `kubectl -n gis get pods` 判活）。
 - **验证产物**：部署后逐服务探活，再经网关 `.../rest/workspaces.json` 与一次 WMS `GetMap` 走通全链路；`docker compose ps` 显示 Up 不等于 OGC 服务可用。
 - **排障顺序**：502 → 查 Consul 注册与目标服务健康（`kubectl -n gis logs deploy/<wms>`）；配置不生效 → 查 RabbitMQ 与 `GEOSERVER_BUS_ENABLED`；瓦片 404 → 查 gwc 是否部署、`GEOSERVER_BASE_PATH` 前缀是否一致。

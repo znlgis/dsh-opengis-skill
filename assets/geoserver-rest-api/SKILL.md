@@ -20,7 +20,7 @@ tags:
 >
 > **API 参考：** <https://docs.geoserver.org/stable/en/user/rest/api/index.html>
 >
-> **最新版本：** GeoServer 3.0.2（2026-10-19，安全修复版；[官方下载](https://geoserver.org/release/stable/)）
+> **最新版本：** GeoServer 3.0.2（2026-10-17 发布，安全修复版；[官方下载](https://geoserver.org/release/stable/)）
 >
 > **许可证：** GPL-2.0
 
@@ -47,13 +47,18 @@ REST API 的典型用途包括：
 
 所有写操作（POST / PUT / DELETE）均需认证。GeoServer 默认使用 HTTP Basic Auth：
 
-```bash
-# curl 方式
-curl -u admin:geoserver ...
+推荐用 `-u`，curl 自动生成 Basic 头；需要显式传头时用下面的等价写法（`YWRtaW46Z2Vvc2VydmVy` 是 `admin:geoserver` 的 base64）：
 
-# HTTP Header 方式
-Authorization: Basic YWRtaW46Z2Vvc2VydmVy
+```bash
+# 方式 1：curl -u（推荐）
+curl -u admin:geoserver http://localhost:8080/geoserver/rest/about/version.json
+
+# 方式 2：显式 Authorization 头
+curl -H "Authorization: Basic YWRtaW46Z2Vvc2VydmVy" \
+  http://localhost:8080/geoserver/rest/about/version.json
 ```
+
+> 凭据务必用环境变量传入（`curl -u "$GS_USER:$GS_PASS"`），不要写进脚本或提交到仓库。
 
 ---
 
@@ -354,10 +359,10 @@ await workspaceService.CreateWorkspaceAsync("myws");
 
 ---
 
-## DeepSeek Harness 使用建议
+## AI 使用建议
 
-- **加载与引用**：`skill("geoserver-rest-api")` 加载；完整端点清单按需 `read` [reference/endpoints.md](reference/endpoints.md)（路径相对技能 Base directory），不要整份通读。
-- **执行环境**：示例交给 dsh 的 `pwsh`（显式 `curl.exe`，Windows 的 `curl` 是别名、参数不同）；`\` 续行在 pwsh 无效，压成单行；请求体先写成 `body.json`，用 `curl.exe --data "@body.json"` 传，避开各 shell 的引号差异。
+- **本技能的组织**：主文件给高频用法，完整参数表与高级示例在 `reference/endpoints.md`，需要时再展开；示例工程与生成的数据写到工作目录，不要改动技能目录本身。
+- **执行环境**：示例在终端 / shell 中执行（显式 `curl.exe`，Windows 的 `curl` 是别名、参数不同）；`\` 续行在 PowerShell 无效，压成单行；请求体先写成 `body.json`，用 `curl.exe --data "@body.json"` 传，避开各 shell 的引号差异。
 - **先探测版本**：`curl.exe -s -u admin:geoserver http://localhost:8080/geoserver/rest/about/version.json`，确认是 3.0.2 并顺带看到组件版本；返回 401 是凭据/安全规则问题，不是版本问题。
 - **验证产物**：写操作后立刻 GET 回读同一资源（`.../rest/workspaces/myws.json`、`.../rest/layers/myws:roads.json`），再发一次 WMS `GetMap` 取 `image/png` 确认非空图；不要只凭 201 或退出码报告成功。
 - **幂等与坑**：同名资源重复 POST 会报已存在（重跑脚本前先 GET 判断或改 PUT）；改了样式记得清 GWC 缓存，否则瓦片还是旧的。

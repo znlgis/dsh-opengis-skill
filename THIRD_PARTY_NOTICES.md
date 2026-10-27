@@ -45,6 +45,15 @@ QGIS, GeoServer, PostGIS, JTS, CesiumJS, OpenLayers, and others) and links to
 that project's own repository, documentation, and license. Those projects
 keep their own licenses; nothing in this package re-licenses them.
 
+## DeepSeek Harness adaptation layer
+
+The files under `adaptations/` are original to this project (MIT, like the rest of
+this repository). They are not copied from opengis-skills; they describe how to run
+the vendored skills inside DeepSeek Harness (shell-tool mapping, version probes,
+artifact verification, permission boundaries) and are appended to the vendored body
+at load time. Keeping them outside `assets/` preserves the byte-for-byte upstream
+snapshot and its SHA-256 integrity manifest.
+
 ## DeepSeek Harness
 
 This package registers a skill provider on the public `ctx.skills` service of

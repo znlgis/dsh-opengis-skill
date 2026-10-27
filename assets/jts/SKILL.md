@@ -56,7 +56,7 @@ JTS Topology Suite（简称 JTS）是 LocationTech 项目组下的开源 Java �
 </dependency>
 ```
 
-如需 GeoJSON 等 I/O 支持：
+如需 GeoJSON 等 I/O 支持（注意 groupId 是 `org.locationtech.jts.io`，与 jts-core 的 `org.locationtech.jts` 不同）：
 
 ```xml
 <dependency>
@@ -65,6 +65,8 @@ JTS Topology Suite（简称 JTS）是 LocationTech 项目组下的开源 Java �
     <version>${jts.version}</version>
 </dependency>
 ```
+
+`jts-io-common` 的 `GeoJsonWriter` 在运行期还依赖 `com.googlecode.json-simple:json-simple`（Maven/Gradle 会自动带入）；手工拼 classpath 时漏掉它会在写出 GeoJSON 时抛 `NoClassDefFoundError: org/json/simple/JSONAware`。
 
 ### Gradle
 
@@ -247,14 +249,15 @@ String geoJson = new GeoJsonWriter().write(buffered);
 | 批量空间查询慢 | 用 `STRtree` 建索引；重复关系判断用 `PreparedGeometry`；大量合并用 `UnaryUnionOp` |
 | 多线程复用 Reader/Writer 出错 | `GeometryFactory` 与 `Geometry` 线程安全；`WKTReader` / `WKTWriter` 等非线程安全，每线程独立创建 |
 | 叠加运算抛 TopologyException | 优先用 `OverlayNGRobust.overlay()`，比传统叠加引擎更鲁棒 |
+| 写 GeoJSON 抛 `NoClassDefFoundError: org/json/simple/JSONAware` | 手工 classpath 缺 `json-simple`，用 Maven/Gradle 引入 `jts-io-common` 让其传递依赖生效 |
 | 旧代码升级后 import 报错 | JTS 1.15+ 包名由 `com.vividsolutions.jts` 迁移为 `org.locationtech.jts` |
 
 ---
 
-## DeepSeek Harness 使用建议
+## AI 使用建议
 
-- **加载与引用**：`skill("jts")` 加载；完整运算示例在 [reference/geometry-operations.md](reference/geometry-operations.md)，按需 `read`（路径相对技能 Base directory）。
-- **执行环境**：命令交给 dsh 的 `pwsh`；JTS 只依赖 `jts-core`，Maven Central 直接可解析，不需要额外仓库，JDK 8+ 即可。
+- **本技能的组织**：主文件给高频用法，完整参数表与高级示例在 `reference/geometry-operations.md`，需要时再展开；示例工程与生成的数据写到工作目录，不要改动技能目录本身。
+- **执行环境**：命令在终端 / shell 中执行；JTS 只依赖 `jts-core`，Maven Central 直接可解析，不需要额外仓库，JDK 8+ 即可。
 - **先探测版本**：`mvn dependency:tree -Dincludes=org.locationtech.jts` 确认解析到 1.20.0；同时确认 classpath 里没有遗留的 `com.vividsolutions.jts` 旧包。
 - **验证产物**：`mvn -q test`，或最小 main 做 WKT 往返 + `geom.isValid()` + `buffer(0)` 断言；导出 GeoJSON 后用 `GeoJsonReader` 读回比对坐标数，别只看日志。
 - **失败信号**：`TopologyException` 改用 `OverlayNGRobust.overlay()`；`isValid()` 为 false 先 `GeometryFixer.fix()`；结果为空多半是把坐标写成了 `(lat, lon)`。

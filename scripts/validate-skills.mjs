@@ -18,8 +18,11 @@
  *      rejecting broken links and paths escaping their root.
  *   8. upstream.json: schema, commit, syncedAt, skill list, and one SHA-256
  *      digest per vendored file; text files must not contain CR bytes.
- *   9. Non-fatal warnings (unparseable syncedAt, non-public npm registry).
- *  10. A catalog size/file/byte/token summary.
+ *   9. adaptations/: one DeepSeek Harness guidance file per vendored skill plus
+ *      "common.md", with the required headings, labels, length, links that
+ *      resolve against the skill directory, and no orphan files.
+ *  10. Non-fatal warnings (unparseable syncedAt, non-public npm registry).
+ *  11. A catalog size/file/byte/token summary.
  *
  * Errors fail the run with exit code 1; warnings never do. Every diagnostic
  * names the offending file. No third-party dependencies are used.
@@ -37,7 +40,15 @@ import {
 	renderSkillCount,
 	renderSkillTable
 } from "../lib/catalog.js";
-import { findMarkdownLinkProblems } from "../lib/markdown-links.js";
+import {
+	ADAPTATION_DIRECTORY,
+	adaptationFile,
+	adaptationProblems,
+	commonFile,
+	commonProblems,
+	listAdaptations
+} from "../lib/adaptations.js";
+import { findMarkdownLinkProblems, relativeMarkdownLinks } from "../lib/markdown-links.js";
 
 /** Repository root: this script lives in <root>/scripts/. */
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
@@ -46,6 +57,7 @@ const packageFile = join(root, "package.json");
 const patchFile = join(root, "cordis.patch.yml");
 const iconFile = join(root, "icon.svg");
 const localeDirectory = join(root, "locale");
+const adaptationRoot = join(root, ADAPTATION_DIRECTORY);
 const readmeFile = join(root, "README.md");
 const manifestFile = join(root, "upstream.json");
 
@@ -61,9 +73,13 @@ const VERSION_RANGE = /^(?:[<>]=?|=|~|\^)?v?\d+(?:\.(?:\d+|[xX*]))*(?:-[0-9A-Za-
 /** A complete lowercase hexadecimal SHA-1 commit id. */
 const COMMIT = /^[0-9a-f]{40}$/u;
 
+/** One "reference/<file>.md" citation inside a DSH adaptation file. */
+const REFERENCE_CITATION = /\b(reference\/[a-z0-9-]+\.md)\b/gu;
+
 /** Package entry points that must be listed for the published tarball. */
 const REQUIRED_FILES = [
 	"assets",
+	"adaptations",
 	"lib",
 	"cordis.patch.yml",
 	"locale/*.json",
@@ -544,6 +560,9 @@ function checkManifest(skills) {
 	}
 }
 
+/** Number of per-skill adaptation files, filled by checkAdaptations(). */
+let adaptationFileCount = 0;
+
 /** Total number of vendored files, filled by scanAssets(). */
 let assetFileCount = 0;
 
@@ -576,6 +595,84 @@ function scanAssets() {
 		assetBytes += bytes.byteLength;
 		if (bytes.includes(0)) continue;
 		if (bytes.includes(13)) error("assets/" + relativePath + ": text-file contains a CR or CRLF byte; run npm run sync");
+	}
+}
+
+/**
+ * Read one adaptation file and normalize it the way the provider does.
+ *
+ * @param path - the absolute Markdown file.
+ * @returns the LF-normalized, trimmed text.
+ */
+function readAdaptationText(path) {
+	return readFileSync(path, "utf8").replaceAll("\r\n", "\n").trim();
+}
+
+/**
+ * Verify the DeepSeek Harness adaptation layer: the shared file, one guidance
+ * file per vendored skill, the required structure, and links that resolve
+ * against the skill directory a loaded skill uses as its resource base.
+ *
+ * @param skills - the valid asset skill entries.
+ */
+function checkAdaptations(skills) {
+	if (!existsSync(adaptationRoot)) {
+		error("adaptations/: directory is missing; the DSH guidance layer is required");
+		return;
+	}
+	let names;
+	try {
+		names = listAdaptations(adaptationRoot);
+	} catch (cause) {
+		error(displayPath(adaptationRoot + ": " + cause.message));
+		return;
+	}
+	const commonPath = commonFile(adaptationRoot);
+	if (!existsSync(commonPath)) {
+		error("adaptations/common.md: the shared DSH guidance file is missing");
+	} else {
+		let text;
+		try {
+			text = readAdaptationText(commonPath);
+		} catch (cause) {
+			error(displayPath(commonPath + ": " + cause.message));
+			text = undefined;
+		}
+		if (text !== undefined) {
+			for (const problem of commonProblems(text)) error(problem);
+			for (const link of relativeMarkdownLinks(text)) error("adaptations/common.md: must not carry a relative link (" + link + "); it is appended to every skill directory");
+		}
+	}
+	const expected = new Set(skills.map((skill) => skill.name));
+	const present = names.filter((name) => name !== "common");
+	for (const name of expected) {
+		if (!present.includes(name)) error("adaptations/" + name + ".md: missing DSH guidance for this skill");
+	}
+	for (const name of present) {
+		if (!expected.has(name)) error("adaptations/" + name + ".md: no matching skill under assets/");
+	}
+	const skillDirectories = new Map(skills.map((skill) => [skill.name, skill.directory]));
+	for (const name of present) {
+		if (!expected.has(name)) continue;
+		const file = adaptationFile(adaptationRoot, name);
+		let text;
+		try {
+			text = readAdaptationText(file);
+		} catch (cause) {
+			error(displayPath(file + ": " + cause.message));
+			continue;
+		}
+		adaptationFileCount += 1;
+		for (const problem of adaptationProblems(name, text)) error(problem);
+		const skillDirectory = skillDirectories.get(name);
+		const fromFile = join(skillDirectory, "SKILL.md");
+		for (const problem of findMarkdownLinkProblems(fromFile, text, assetsRoot)) error(displayPath(problem));
+		for (const match of text.matchAll(REFERENCE_CITATION)) {
+			const target = join(skillDirectory, ...match[1].split("/"));
+			if (statSync(target, { throwIfNoEntry: false })?.isFile() !== true) {
+				error("adaptations/" + name + ".md: cites " + match[1] + ", which is not a file in assets/" + name + "/");
+			}
+		}
 	}
 }
 
@@ -615,7 +712,9 @@ function printSummary(skills) {
 			skills.length +
 			" skills, " +
 			assetFileCount +
-			" files, " +
+			" asset files, " +
+			adaptationFileCount +
+			" DSH adaptations, " +
 			assetBytes +
 			" asset bytes, catalog " +
 			catalogCharacters +
@@ -638,6 +737,7 @@ checkReadme();
 const validatedSkills = checkAssets();
 checkLinks();
 checkManifest(validatedSkills);
+checkAdaptations(validatedSkills);
 checkChangelog();
 scanAssets();
 printSummary(validatedSkills);

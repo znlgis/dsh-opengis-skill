@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { execFileSync, spawnSync } from "node:child_process";
-import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import test from "node:test";
@@ -19,6 +19,7 @@ const COPIED_ENTRIES = [
 	"icon.svg",
 	"upstream.json",
 	"assets",
+	"adaptations",
 	"lib",
 	"locale",
 	"scripts"
@@ -35,6 +36,55 @@ function copyRepository(destination) {
 		if (!existsSync(from)) continue;
 		cpSync(from, join(destination, entry), { recursive: true });
 	}
+}
+
+/**
+ * Reconcile the copied DSH adaptation layer with a fixture's assets/ directory:
+ * drop files for skills the fixture no longer has and synthesize a minimal file
+ * for skills that arrived without one. A fixture that swaps the assets for a
+ * one-skill checkout would otherwise carry 40 orphan adaptations.
+ *
+ * @param destination - the scratch repository root.
+ */
+function pruneAdaptations(destination) {
+	const directory = join(destination, "adaptations");
+	mkdirSync(directory, { recursive: true });
+	const skills = existsSync(join(destination, "assets"))
+		? readdirSync(join(destination, "assets"), { withFileTypes: true })
+			.filter((entry) => entry.isDirectory())
+			.map((entry) => entry.name)
+		: [];
+	const keep = new Set(["common.md", ...skills.map((name) => name + ".md")]);
+	for (const entry of readdirSync(directory, { withFileTypes: true })) {
+		if (!entry.isFile() || keep.has(entry.name)) continue;
+		rmSync(join(directory, entry.name), { force: true });
+	}
+	for (const name of skills) {
+		if (existsSync(join(directory, name + ".md"))) continue;
+		writeFileSync(join(directory, name + ".md"), syntheticAdaptation(name));
+	}
+}
+
+/**
+ * Build a structurally valid adaptation for a fixture skill that has no real
+ * guidance file, so validate-skills.mjs exercises its asset checks rather than
+ * failing on the adaptation layer.
+ *
+ * @param name - the fixture skill name.
+ * @returns the Markdown text of the synthetic guidance.
+ */
+function syntheticAdaptation(name) {
+	return [
+		"## DeepSeek Harness 使用建议",
+		"",
+		"- **加载与引用**：用 \`skill(\"" + name + "\")\` 加载，参考文件按 Base directory 相对读取。",
+		"- **执行环境**：命令走 \`ops_bash\`，Windows 原生命令走 \`pwsh\`。",
+		"- **先探测版本**：先跑 \`--version\` 确认工具可用，再按版本挑命令。",
+		"- **验证产物**：重新打开输出文件核对元数据，不要只看退出码。",
+		"- **风险与权限**：覆盖、删除、安装与使用凭据前先向用户确认。",
+		"",
+		"这是测试夹具生成的占位适配文件，只用于让校验脚本走完资产检查；内容长度足以通过结构阈值，且不含任何真实建议。"
+	].join("\n");
 }
 
 test("validate-skills passes on the repository", () => {
@@ -65,6 +115,33 @@ test("validate-skills rejects a manually damaged README skill table", () => {
 		writeFileSync(readme, readFileSync(readme, "utf8").replace("<!-- skills:count:end -->", ""));
 		const result = runNode(join(scratch, "scripts", "validate-skills.mjs"), [], scratch);
 		assert.notEqual(result.status, 0, "a missing generated README marker must fail validation");
+	} finally {
+		rmSync(scratch, { recursive: true, force: true });
+	}
+});
+
+test("validate-skills rejects a missing DSH adaptation", () => {
+	const scratch = mkdtempSync(join(tmpdir(), "opengis-validate-adapt-"));
+	try {
+		copyRepository(scratch);
+		rmSync(join(scratch, "adaptations", "gdal.md"));
+		const result = runNode(join(scratch, "scripts", "validate-skills.mjs"), [], scratch);
+		assert.notEqual(result.status, 0, "a missing adaptation must fail validation");
+		assert.match(result.stdout + result.stderr, /adaptations\/gdal\.md: missing DSH guidance/u);
+	} finally {
+		rmSync(scratch, { recursive: true, force: true });
+	}
+});
+
+test("validate-skills rejects an adaptation citing a file the skill does not ship", () => {
+	const scratch = mkdtempSync(join(tmpdir(), "opengis-validate-cite-"));
+	try {
+		copyRepository(scratch);
+		const file = join(scratch, "adaptations", "gdal.md");
+		writeFileSync(file, readFileSync(file, "utf8").replace("reference/vector-tools.md", "reference/does-not-exist.md"));
+		const result = runNode(join(scratch, "scripts", "validate-skills.mjs"), [], scratch);
+		assert.notEqual(result.status, 0, "a dangling reference citation must fail validation");
+		assert.match(result.stdout + result.stderr, /cites reference\/does-not-exist\.md/u);
 	} finally {
 		rmSync(scratch, { recursive: true, force: true });
 	}
@@ -165,6 +242,7 @@ test(
 			execFileSync("git", ["-c", "user.name=test", "-c", "user.email=test@example.com", "-c", "commit.gpgsign=false", "commit", "-q", "-m", "fixture"], { cwd: upstream });
 			const sync = runNode(join(scratch, "scripts", "sync-opengis-skills.mjs"), ["--from", upstream], scratch);
 			assert.equal(sync.status, 0, sync.stdout + sync.stderr);
+			pruneAdaptations(scratch);
 			const skill = readFileSync(join(scratch, "assets", "alpha", "SKILL.md"));
 			assert.equal(skill.includes(0x0d), false, "text files must be vendored with LF endings");
 			assert.deepEqual(

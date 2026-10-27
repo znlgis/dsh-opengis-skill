@@ -19,7 +19,7 @@ tags:
 >
 > **API 参考：** <https://docs.mapbox.com/mapbox-gl-js/api/>
 >
-> **最新版本：** 3.33.0（截至2026-10，npm `mapbox-gl` 与 GitHub Release 一致）
+> **最新版本：** 3.33.0（截至 2026-10，npm `mapbox-gl` 与 GitHub Release 一致）
 >
 > **许可证：** v2+ 为 Mapbox 专有许可（v1.x 为 BSD-3-Clause；需 Mapbox 账号 access token）
 
@@ -406,6 +406,23 @@ map.on('load', () => {
 
 ---
 
+## AI 使用建议
+
+- **执行环境**：`npm install`、`npm run build` 在终端中执行；Windows 下用 `npm.cmd`，长构建放后台运行。
+- **先探测版本**：`npm ls mapbox-gl`（未装则 `npm view mapbox-gl version`）；本技能按 3.33.0 编写，CDN 的 JS 与 CSS 必须同为 `v3.33.0`，联网时 `curl.exe -I https://api.mapbox.com/mapbox-gl-js/v3.33.0/mapbox-gl.js` 应为 200。
+- **验证产物**：`npm run build` 后 `npx serve dist`，`curl.exe -I http://localhost:5173/` 确认入口；地图是否真加载、有没有 401 只能看浏览器 Network（`api.mapbox.com`），AI 助手通常看不到浏览器画面，请用户确认或提供截图后再判断。
+- **token 安全**：前端只允许 `pk.` 公开 token，`sk.` 绝不能进构建产物；用 `VITE_MAPBOX_TOKEN` 等环境变量注入，提交前用 agent 的 `grep` 搜 `sk.` 与硬编码 `pk.`，回答和日志里不要回显 token。
+- **许可提醒**：v2+ 是 Mapbox 专有许可并受配额计费约束；用户要求开源或免 token 时改写为 MapLibre（`maplibregl` 替代 `mapboxgl`，`mapbox://` 样式换成自建瓦片）。
+- **常见症状**：`Style is not done loading` 是 `load` 事件前调了 `addSource`/`addLayer`；空白先查容器高度和 `map.resize()`；`e.features` 只在回调内有效。
+- **安全与权限**：装包、起 dev server、调用计费接口前先征得用户同意，并说明可能产生费用。
+
+## 相关技能
+
+- **leaflet** — 轻量 2D 瓦片地图，无需 token，适合简单场景：[../leaflet/SKILL.md](../leaflet/SKILL.md)
+- **openlayers** — 功能全面的开源 2D WebGIS 库（投影、MVT、高级交互）：[../openlayers/SKILL.md](../openlayers/SKILL.md)
+- **cesiumjs** — 三维地球与 3D Tiles 可视化：[../cesiumjs/SKILL.md](../cesiumjs/SKILL.md)
+- **geoserver** — 发布 WMS/WFS/MVT 服务作为矢量瓦片数据源：[../geoserver/SKILL.md](../geoserver/SKILL.md)
+
 ## 参考资源
 
 - 官方文档：<https://docs.mapbox.com/mapbox-gl-js/>
@@ -416,21 +433,3 @@ map.on('load', () => {
 - 源码仓库与发布记录：<https://github.com/mapbox/mapbox-gl-js>
 - 开源替代 MapLibre GL JS：<https://github.com/maplibre/maplibre-gl-js>
 - 价格说明：<https://www.mapbox.com/pricing>
-
-## 相关技能
-
-- **leaflet** — 轻量 2D 瓦片地图，无需 token，适合简单场景：[../leaflet/SKILL.md](../leaflet/SKILL.md)
-- **openlayers** — 功能全面的开源 2D WebGIS 库（投影、MVT、高级交互）：[../openlayers/SKILL.md](../openlayers/SKILL.md)
-- **cesiumjs** — 三维地球与 3D Tiles 可视化：[../cesiumjs/SKILL.md](../cesiumjs/SKILL.md)
-- **geoserver** — 发布 WMS/WFS/MVT 服务作为矢量瓦片数据源：[../geoserver/SKILL.md](../geoserver/SKILL.md)
-
-## DeepSeek Harness 使用建议
-
-- **加载与引用**：用 `skill("mapbox-gl-js")` 加载（用户也可输入 `/mapbox-gl-js`）；本技能无 reference 子目录，示例代码写入会话工作区工程，技能目录只读。
-- **执行环境**：`npm install`、`npm run build` 交给 `pwsh`；Windows 下用 `npm.cmd`，长构建用后台作业。
-- **先探测版本**：`npm ls mapbox-gl`（未装则 `npm view mapbox-gl version`）；本技能按 3.33.0 编写，CDN 的 JS 与 CSS 必须同为 `v3.33.0`，联网时 `curl.exe -I https://api.mapbox.com/mapbox-gl-js/v3.33.0/mapbox-gl.js` 应为 200。
-- **验证产物**：`npm run build` 后 `npx serve dist`，`curl.exe -I http://localhost:5173/` 确认入口；地图是否真加载、有没有 401 只能看浏览器 Network（`api.mapbox.com`），DSH 不打开浏览器，请用户确认或提供截图后再 `read_image`。
-- **token 安全**：前端只允许 `pk.` 公开 token，`sk.` 绝不能进构建产物；用 `VITE_MAPBOX_TOKEN` 等环境变量注入，提交前用 dsh 的 `grep` 搜 `sk.` 与硬编码 `pk.`，回答和日志里不要回显 token。
-- **许可提醒**：v2+ 是 Mapbox 专有许可并受配额计费约束；用户要求开源或免 token 时改写为 MapLibre（`maplibregl` 替代 `mapboxgl`，`mapbox://` 样式换成自建瓦片）。
-- **常见症状**：`Style is not done loading` 是 `load` 事件前调了 `addSource`/`addLayer`；空白先查容器高度和 `map.resize()`；`e.features` 只在回调内有效。
-- **安全与权限**：装包、起 dev server、调用计费接口前先征得用户同意，并说明可能产生费用。

@@ -29,7 +29,7 @@ export interface OpenGisSkillCandidate {
 	resourceBase: OpenGisResourceBase;
 }
 
-/** One loaded skill body returned by the provider. */
+/** One loaded skill body returned by the provider; "content" also carries the DSH guidance. */
 export interface OpenGisSkillDefinition {
 	name: string;
 	description: string;

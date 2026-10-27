@@ -1,6 +1,6 @@
 {
   "meta": {
     "title": "OpenGIS Skills",
-    "description": "GIS skills from opengis-skills — GDAL, QGIS, GeoServer, PostGIS, JTS, CesiumJS, OpenLayers, Leaflet, deck.gl and more — loaded on demand."
+    "description": "40 GIS skills from opengis-skills (GDAL, QGIS, GeoServer, PostGIS, DuckDB Spatial, JTS, CesiumJS, OpenLayers and more), loaded on demand with DeepSeek Harness execution guidance."
   }
 }

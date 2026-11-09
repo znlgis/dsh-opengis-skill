@@ -4,6 +4,12 @@ export interface SkillEntry {
 	name: string;
 	/** Required routing description. */
 	description: string;
+	/** SPDX-style license declared by the frontmatter, when present. */
+	license?: string;
+	/** Nested "metadata" block: category plus the parsed tag list. */
+	metadata: { category?: string; tags: string[] };
+	/** Top-level frontmatter fields in source order. */
+	frontmatterFields: string[];
 	/** Absolute skill directory. */
 	directory: string;
 	/** Absolute path to SKILL.md. */
@@ -16,7 +22,7 @@ export declare const SKILL_FILE: "SKILL.md";
 /** Read one skill directory, or undefined when it has no SKILL.md. */
 export declare function readSkillEntry(directory: string, expectedName?: string): SkillEntry | undefined;
 
-/** Read every skill directory under one asset root, sorted by name. */
+/** Read every skill directory under one asset root. */
 export declare function readSkillCatalog(assetRoot: string): SkillEntry[];
 
 /** Render one skill directory as a registry resource base. */

@@ -16,6 +16,12 @@ export declare const SKILL_SEPARATOR: string;
 /** Labels every per-skill guidance must keep, in this order. */
 export declare const REQUIRED_LABELS: readonly string[];
 
+/** DeepSeek Harness tools the guidance may name, used to prove harness specificity. */
+export declare const DSH_TOOLS: readonly string[];
+
+/** List the distinct DeepSeek Harness tool names cited in backticks, in citation order. */
+export declare function citedTools(text: string): string[];
+
 /** Build the path of one per-skill adaptation file. */
 export declare function adaptationFile(root: string, name: string): string;
 

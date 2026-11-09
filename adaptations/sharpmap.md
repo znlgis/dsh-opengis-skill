@@ -1,8 +1,8 @@
 ## DeepSeek Harness 使用建议
 
-- **加载与引用**：本技能无 `reference/` 分册，正文 344 行；渲染、PostGIS、瓦片三条路径按「典型工作流」定位，样式与主题细节看「主题样式」与「常见问题」两节。
-- **执行环境**：`dotnet` 走 `pwsh`；WinForms 控件 `SharpMap.UI` 只有 .NET Framework 4.7.2，工程 `TargetFramework` 必须写 `net472`，不能套 net8.0。`dotnet add package SharpMap --version 1.2.0` 前先确认工程目录，别在技能目录里执行。
-- **先探测版本**：`dotnet --version` 与 `dotnet restore`；`restore` 伴随 NU1902 / NU1903 / NU1904 漏洞告警是 1.2.0 的已知状态，不要当安装失败，但要向用户说明。坐标变换用 `ProjNet4GeoAPI` 1.4.1，ProjNet 2.x 与 SharpMap 1.2 类型不兼容。
-- **验证产物**：`dotnet build` 通过不算完成；跑出 `map.GetMap()` 保存的 PNG，再用 `read_image` 看按人口分色的面、标注文字和底图瓦片是否都在，空白或整体偏移都要继续查。
-- **风险与权限**：GDI+ 的 `Brush` / `Pen` / `Bitmap` 必须 `using` 或 `Dispose`，否则长时间运行内存持续上涨；连接 PostGIS、装包、新建工程前先问用户，连接串里的密码不要写进代码或回答。
-- **常见失败**：无图先查 `map.SRID` 与图层 SRID 是否一致、有没有 `ZoomToExtents()`；Shapefile 中文乱码要 `shp.Encoding = Encoding.GetEncoding("GBK")`（构造函数没有 Encoding 重载）；`TileAsyncLayer` 在 `SharpMap.Layers.BruTile` 包；`SharpMap.UI.WinForms` 这个包名不存在，控件在 `SharpMap.UI`。
+- **加载与引用**：单文件技能，无 reference；装包与目标框架看「安装」，图层与样式看「核心 API」及 WinForms/PostGIS/瓦片示例，「常见问题」给无图、乱码、类型冲突的对照。坐标变换细节用 `skill` 加载 `projnet4geoapi`，几何运算加载 `nettopologysuite`，新项目迁移到 `mapsui`。
+- **执行环境**：`dotnet add package`、`dotnet restore`、`dotnet build` 走 `ops_bash`（Windows 是 MSYS bash，工程路径写 `/d/work/maptest`）；`dotnet --list-sdks`、`Get-Command dotnet`、`$env:` 变量等 Windows 原生命令走 `pwsh`。关键约束：`SharpMap.UI` 只支持 .NET Framework 4.7.2，csproj 目标框架必须写 `net472`，不能写成 `net8.0`；只有核心包 `SharpMap`（netstandard2.0）能被新框架引用。渲染与批量出图用后台作业，`job_output` 收日志，`job_kill` 停掉卡住的任务。
+- **先探测版本**：正文按 SharpMap 1.2.0 编写（2021-03 发布，仓库未归档但维护低频），坐标变换一侧必须用 `ProjNet4GeoAPI` 1.4.1。先跑 `dotnet --version` 与 `dotnet list package` 确认目标框架与包版本：`dotnet restore` 输出 NU1902/NU1903/NU1904 漏洞告警是已知状态（传递依赖 `NetTopologySuite.Core` 1.15.3、`System.Drawing.Common` 4.6.0 等），不是装失败，但要在回复里说明而不是静默忽略。正文只覆盖 1.2.0，没有 2.x，别照抄别的技能里的 ProjNet 2.x 写法。
+- **验证产物**：最终判据是图不是编译：`map.GetMap()` 取 `System.Drawing.Image` 后 `Save("output.png")`，再按正文的验收——能看到按人口分档的面、标注文字、底图瓦片齐全才算渲染正确。构建只算前置：`dotnet build` 通过后必须打开 PNG 核对，会看图就用 `read_image` 真看一眼是否空白或整片偏移。SRID 一致性要单独查：`map.SRID` 与图层坐标系不一致时图能出但位置全错（例如 OSM 底图必须 3857），这属于正文「无图」以外更隐蔽的失败。
+- **风险与权限**：新建工程、装包、连 PostGIS、把 SharpMap 1.2.0 引入既有解决方案前用 `ask_user_question` 让用户确认（该包维护低频且带已知漏洞告警）；PostGIS 连接串的密码不要写进代码、日志或回复，示例里用占位符。`ShapeFile` 构造函数没有 `Encoding` 重载，中文乱码要单独设 `shp.Encoding = Encoding.GetEncoding("GBK")`；`Brush`/`Pen`/`Bitmap` 必须 `using`/`Dispose`，否则 GDI+ 句柄泄漏会拖垮长驻进程。
+- **常见失败**：无图先查 `SRID` 与有没有调 `ZoomToExtents()`；找不到 `SharpMap.UI.WinForms` 是因为包名不存在，控件在 `SharpMap.UI` 里；`CoordinateTransformation` 赋值编译失败是引了 ProjNet 2.x，换回 `ProjNet4GeoAPI` 1.4.1；`TileAsyncLayer` 找不到要装 `SharpMap.Layers.BruTile`；文字模糊设 DPI Aware 并调 `MapTransform`。

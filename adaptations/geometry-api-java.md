@@ -1,8 +1,8 @@
 ## DeepSeek Harness 使用建议
 
-- **加载与引用**：本技能只有主文件，没有 `reference/` 分册；按「格式转换」「空间操作」「常见问题」等章节标题用 `grep` 定位，再 `read` 行区间，避免整篇占满上下文。
-- **执行环境**：`mvn` / `java` 走 `ops_bash`；依赖只有 `com.esri.geometry:esri-geometry-api:2.2.4` 加运行期 `jackson-core`，不需要 OSGeo 仓库。示例工程与输出落到会话工作区，别写死 Linux 绝对目录。
-- **先探测版本**：`mvn -v` 与 `java -version`；库要求 JDK 1.7+，本机建议 17/21。先 `mvn dependency:get -Dartifact=com.esri.geometry:esri-geometry-api:2.2.4` 确认可解析——Maven Central 上最新仍是 2.2.4，上游 2.3.1 未发布，解析失败就报告“依赖不可下载”，不要换成 2.3.1。
-- **验证产物**：`mvn -q -DskipTests package` 只说明能编译；最小 main 断言三件事——`geometryFromWkt` → `geometryToWkt` 往返、`GeometryEngine.buffer(polygon, sr, 2.0)` 后 `getEnvelope()` 向外扩张、`geometryToGeoJson` 能被 `geoJsonToGeometry` 读回；输出重定向到文件再 `read`。
-- **风险与权限**：`mvn` 会写 `~/.m2` 与 `target/`，属预期；`mvn install` / `deploy`、改 `settings.xml`、加未知镜像仓库前先问用户；批量处理时别跨线程复用 `Operator` 实例。
-- **常见失败**：`GeometryEngine` 没有 `intersects` 与 WKB 方法，分别用 `OperatorIntersects.local().execute(a, b, sr, null)` 与 `OperatorImportFromWkb` / `OperatorExportToWkb`；面积、长度用 `calculateArea2D()` / `calculateLength2D()`，没有 `getArea()`；`Unsupported class file major version` 是编译与运行 JDK 不一致。
+- **加载与引用**：单文件技能，无 reference；正文按 Maven Central 上的 2.2.4 编写，算子与格式转换查「核心 API 一览」「格式转换」两节，「高级用法：Operator 直接调用」是绕开 `GeometryEngine` 缺失能力的正路。需要活跃维护的替代方案时用 `skill` 加载 `jts`，.NET 同名能力用 `skill` 加载 `geometry-api-net`，不要在技能之间 `read` 兄弟目录。
+- **执行环境**：`mvn -v`、`java -version`、`mvn dependency:get` 走 `pwsh`（Windows 上 `mvn` 是 `mvn.cmd`，`JAVA_HOME` 与 `mvn` 实际用的 JDK 可能不是同一个）；构建输出重定向到 `build.log`，再用 `grep` 找第一条 `ERROR`。示例建在会话工作区的临时 Maven 工程里，`target/` 与 `~/.m2` 属预期写入，不要写进 assets/。
+- **先探测版本**：`mvn dependency:get -Dartifact=com.esri.geometry:esri-geometry-api:2.2.4` 直接确认坐标可解析。2.2.4 是 2020-09 发布、至今仍是 Central 最新；上游 2.3.1（2026-10-09）未发布到 Central，不要把 POM 改成 2.3.1 去试。正文里的 `geometryFromWkt`、`geodesicDistanceOnWGS84` 在 2.2.4 已存在，版本差异主要在算子可见性：`GeometryEngine` 始终没有 `intersects` 与 WKB 方法。
+- **验证产物**：写最小 main 断言三件事——`geometryFromWkt` 到 `geometryToWkt` 往返等价、`GeometryEngine.buffer(poly, sr, 2.0).getEnvelope()` 相对原面外扩、`geometryToGeoJson` 能被 `geoJsonToGeometry` 重新读入；再用 `mvn -q -DskipTests package` 证明能编译。编译通过不代表几何正确，把断言结果打到 stdout 并 `grep` 其值；需要给用户看的结果文件用 `present` 交付。
+- **风险与权限**：`mvn` 首次会拉依赖，无网或私服缺包报 `Could not resolve dependencies`，不要改 `settings.xml`、加未知仓库或降版本绕过，先用 `ask_user_question` 问用户可用的镜像。`mvn install`/`deploy`、写共享 `settings.xml` 前先确认。参与运算的几何必须带同一 `SpatialReference`；`Operator` 实例非线程安全，批量时每线程持有自己的算子。
+- **常见失败**：报 `Unsupported class file major version` 时按 `mvn -v` 显示的 JDK 判断 `JAVA_HOME` 是否指错；找不到 WKB、`intersects`、`generalize` 是去调了 `GeometryEngine`，改用 `OperatorImportFromWkb`、`OperatorIntersects`、`OperatorGeneralize`；面积与长度用 `calculateArea2D()`/`calculateLength2D()`，不要找 `getArea()`。导入几何拓扑无效时先 `simplify()` 再参与运算。

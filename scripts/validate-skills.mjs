@@ -14,15 +14,24 @@
  *   4. locale/*.json: language-id file names, valid JSON, non-empty meta.
  *   5. README.md generated skill count/table compared with assets/.
  *   6. assets/: one readable, kebab-case skill directory per skill.
- *   7. Relative Markdown links in every asset document and repo document,
+ *   7. The Agent Skills six-field frontmatter contract: only legal fields,
+ *      "license: MIT", "metadata.category: gis", a well-formed tag list, and
+ *      descriptions that are unique, English, free of angle brackets, within
+ *      the catalog budget and prefixed with "Use when".
+ *   8. Asset content quality: SKILL.md within the progressive-disclosure line
+ *      budget, no orphan reference files, reference tables of contents, FAQ
+ *      size, freshness markers and fenced-code languages (the last four are
+ *      warnings so upstream editorial state cannot block a release).
+ *   9. Relative Markdown links in every asset document and repo document,
  *      rejecting broken links and paths escaping their root.
- *   8. upstream.json: schema, commit, syncedAt, skill list, and one SHA-256
+ *  10. upstream.json: schema, commit, syncedAt, skill list, and one SHA-256
  *      digest per vendored file; text files must not contain CR bytes.
- *   9. adaptations/: one DeepSeek Harness guidance file per vendored skill plus
- *      "common.md", with the required headings, labels, length, links that
- *      resolve against the skill directory, and no orphan files.
- *  10. Non-fatal warnings (unparseable syncedAt, non-public npm registry).
- *  11. A catalog size/file/byte/token summary.
+ *  11. adaptations/: one DeepSeek Harness guidance file per vendored skill plus
+ *      "common.md", with the required headings, ordered labels, length budget,
+ *      a minimum number of cited DeepSeek Harness tools, links that resolve
+ *      against the skill directory, and no orphan files.
+ *  12. Non-fatal warnings (unparseable syncedAt, non-public npm registry).
+ *  13. A catalog size/file/byte/token summary.
  *
  * Errors fail the run with exit code 1; warnings never do. Every diagnostic
  * names the offending file. No third-party dependencies are used.
@@ -49,6 +58,7 @@ import {
 	listAdaptations
 } from "../lib/adaptations.js";
 import { findMarkdownLinkProblems, relativeMarkdownLinks } from "../lib/markdown-links.js";
+import { LEGAL_FIELDS, parseSkillFile } from "../lib/skill-file.js";
 
 /** Repository root: this script lives in <root>/scripts/. */
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
@@ -75,6 +85,39 @@ const COMMIT = /^[0-9a-f]{40}$/u;
 
 /** One "reference/<file>.md" citation inside a DSH adaptation file. */
 const REFERENCE_CITATION = /\b(reference\/[a-z0-9-]+\.md)\b/gu;
+
+/** Maximum length of an upstream description, tightened from the spec's 1024. */
+const DESCRIPTION_MAX = 500;
+
+/** The description prefix that makes a skill routable from the session catalog. */
+const DESCRIPTION_PREFIX = "Use when";
+
+/** Accepted character count for the upstream metadata.tags list. */
+const TAG_COUNT = { min: 5, max: 10 };
+
+/** Grammar for one upstream metadata tag. */
+const TAG = /^[a-z0-9][a-z0-9.-]*$/u;
+
+/** One ASCII angle bracket, which some skill clients reject in a description. */
+const ANGLE_BRACKET = /[<>]/u;
+
+/** One CJK character; upstream descriptions must stay English. */
+const CJK = /[\u3040-\u30ff\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff]/u;
+
+/** One emoji or pictographic symbol, which upstream forbids in skill bodies. */
+const EMOJI = /[\u{1f300}-\u{1faff}\u{2600}-\u{27bf}]/u;
+
+/** The freshness marker every skill header must carry, for example "截至 2026-11". */
+const FRESHNESS = /截至 \d{4}-\d{2}/u;
+
+/** Upper bound on SKILL.md length before it must be split into references. */
+const SKILL_MAX_LINES = 500;
+
+/** Reference files longer than this need a table of contents. */
+const REFERENCE_TOC_LINES = 100;
+
+/** Minimum FAQ table rows upstream requires in a skill body. */
+const FAQ_MIN_ROWS = 5;
 
 /** Package entry points that must be listed for the published tarball. */
 const REQUIRED_FILES = [
@@ -456,6 +499,137 @@ function checkAssets() {
 }
 
 /**
+ * Verify the vendored frontmatter against the Agent Skills contract the
+ * provider depends on.
+ *
+ * Upstream migrated every skill to the six legal fields plus a nested
+ * "metadata" map, so the packaged snapshot must keep that shape: "name" and
+ * "description" drive the session catalog, "license" and "metadata" are what
+ * the plugin republishes as candidate metadata. A regression here breaks
+ * discovery or leaks an illegal field into clients that pack skills, so these
+ * are errors, not warnings.
+ *
+ * @param skills - the valid asset skill entries.
+ */
+function checkFrontmatter(skills) {
+	const descriptions = new Map();
+	for (const skill of skills) {
+		const label = "assets/" + skill.name + "/SKILL.md";
+		let parsed;
+		try {
+			parsed = parseSkillFile(readFileSync(skill.path, "utf8"), skill.path);
+		} catch (cause) {
+			error(displayPath(cause.message));
+			continue;
+		}
+		for (const field of parsed.frontmatterFields) {
+			if (!LEGAL_FIELDS.includes(field)) error(label + ': illegal frontmatter field "' + field + '"; only ' + LEGAL_FIELDS.join(", ") + " are allowed");
+		}
+		if (parsed.license !== "MIT") error(label + ': "license" must be MIT, got ' + JSON.stringify(parsed.license));
+		if (parsed.metadata.category !== "gis") error(label + ': "metadata.category" must be "gis", got ' + JSON.stringify(parsed.metadata.category));
+		const tags = parsed.metadata.tags;
+		if (!Array.isArray(tags) || tags.length < TAG_COUNT.min || tags.length > TAG_COUNT.max) {
+			error(label + ': "metadata.tags" must list ' + TAG_COUNT.min + "-" + TAG_COUNT.max + " tags, got " + JSON.stringify(tags));
+		} else {
+			for (const tag of tags) {
+				if (typeof tag !== "string" || !TAG.test(tag)) error(label + ': invalid "metadata.tags" entry ' + JSON.stringify(tag));
+			}
+		}
+		const description = parsed.description;
+		if (description.length > DESCRIPTION_MAX) error(label + ": description is " + description.length + " characters; the catalog budget is " + DESCRIPTION_MAX);
+		if (!description.startsWith(DESCRIPTION_PREFIX)) error(label + ': description must start with "' + DESCRIPTION_PREFIX + '" so the model can route on it');
+		if (ANGLE_BRACKET.test(description)) error(label + ": description must not carry angle brackets");
+		if (CJK.test(description)) error(label + ": description must stay English");
+		if (descriptions.has(description)) error(label + ": description duplicates assets/" + descriptions.get(description) + "/SKILL.md");
+		else descriptions.set(description, skill.name);
+	}
+}
+
+/**
+ * Report content-quality regressions in the vendored assets: stale version
+ * headers, oversized SKILL.md files, emoji, code fences without a language,
+ * uncatalogued reference files, missing reference tables of contents, and thin
+ * FAQ tables.
+ *
+ * The freshness marker and the FAQ size are warnings on purpose: they describe
+ * upstream's editorial state, and blocking a release on them would make this
+ * package hostage to an upstream documentation commit. Everything that hides
+ * content from the model (an orphan reference, a SKILL.md over the split
+ * threshold) is an error.
+ *
+ * @param skills - the valid asset skill entries.
+ */
+function checkAssetQuality(skills) {
+	for (const skill of skills) {
+		const label = "assets/" + skill.name;
+		let raw;
+		try {
+			raw = readFileSync(skill.path, "utf8");
+		} catch (cause) {
+			error(displayPath(skill.path + ": " + cause.message));
+			continue;
+		}
+		const lines = raw.split(/\r?\n/u);
+		if (lines.length > SKILL_MAX_LINES) error(label + "/SKILL.md: " + lines.length + " lines exceeds the " + SKILL_MAX_LINES + "-line progressive-disclosure limit");
+		if (!FRESHNESS.test(lines.slice(0, 40).join("\n"))) warn(label + "/SKILL.md: header lacks a freshness marker (截至 YYYY-MM)");
+		if (EMOJI.test(raw)) warn(label + "/SKILL.md: contains emoji characters");
+		let fence = 0;
+		for (const line of lines) {
+			const match = /^\s*```(.*)$/u.exec(line);
+			if (match === null) continue;
+			fence += 1;
+			if (fence % 2 === 1 && match[1].trim().length === 0) warn(label + "/SKILL.md: code fence without a language tag");
+		}
+		checkFaq(label, lines);
+		let referenceFiles = [];
+		try {
+			referenceFiles = readdirSync(join(skill.directory, "reference")).filter((file) => file.endsWith(".md")).sort();
+		} catch {
+			referenceFiles = [];
+		}
+		for (const file of referenceFiles) {
+			const relative = "reference/" + file;
+			if (!raw.includes(relative)) error(label + "/SKILL.md: does not link " + relative + ", so the model cannot discover it");
+			let text;
+			try {
+				text = readFileSync(join(skill.directory, "reference", file), "utf8");
+			} catch (cause) {
+				error(displayPath(join(skill.directory, "reference", file) + ": " + cause.message));
+				continue;
+			}
+			const referenceLines = text.split(/\r?\n/u);
+			if (referenceLines.length > REFERENCE_TOC_LINES && !/^## (?:Contents|目录)/mu.test(text)) {
+				warn(label + "/" + relative + ": " + referenceLines.length + " lines without a table of contents");
+			}
+		}
+	}
+}
+
+/**
+ * Count the FAQ table rows of one skill body and report a thin table.
+ *
+ * @param label - the repository-relative skill label.
+ * @param lines - the SKILL.md lines.
+ */
+function checkFaq(label, lines) {
+	const start = lines.findIndex((line) => /^## 常见问题/u.test(line));
+	if (start === -1) {
+		warn(label + "/SKILL.md: no \"## 常见问题\" section");
+		return;
+	}
+	let end = lines.length;
+	for (let index = start + 1; index < lines.length; index += 1) {
+		if (/^## /u.test(lines[index])) {
+			end = index;
+			break;
+		}
+	}
+	const rows = lines.slice(start + 1, end).filter((line) => line.trim().startsWith("|") && !/^\|[\s:|-]+\|$/u.test(line.trim())).length;
+	const dataRows = Math.max(0, rows - 1);
+	if (dataRows < FAQ_MIN_ROWS) warn(label + "/SKILL.md: FAQ has " + dataRows + " row(s), upstream asks for at least " + FAQ_MIN_ROWS);
+}
+
+/**
  * Verify every relative Markdown link: all documents under assets/ resolve
  * inside assets/, and the repository docs resolve inside the repository root.
  */
@@ -735,6 +909,8 @@ checkIcon();
 checkLocales();
 checkReadme();
 const validatedSkills = checkAssets();
+checkFrontmatter(validatedSkills);
+checkAssetQuality(validatedSkills);
 checkLinks();
 checkManifest(validatedSkills);
 checkAdaptations(validatedSkills);

@@ -1,8 +1,8 @@
 ## DeepSeek Harness 使用建议
 
-- **加载与引用**：先读「安装」表决定装整包还是子包，再读「与 MapLibre / Mapbox 底图集成」——`viewState`/`controller`/`canvas`/`device` 等由 `MapboxOverlay` 内部托管，传了也不生效；需要底图侧细节用 `read` 打开 `../mapbox-gl-js/SKILL.md`。
-- **执行环境**：子包多、`npm install` 输出长，放后台作业并把日志重定向到文件再 `grep`；`npm run build` 同样处理；预览用 `npx serve dist` 或 CDN 的 `unpkg.com/deck.gl@9.4.0/dist.min.js` 静态页，服务起后台，验证完 `job_kill`。
-- **先探测版本**：`npm ls deck.gl @deck.gl/core @deck.gl/layers @deck.gl/geo-layers @deck.gl/mapbox`；所有 `@deck.gl/*` 必须是同一版本 9.4.0，子包版本不会自动同步，混版典型报错是 `Cannot read properties of undefined`。`grep` `package.json` 里的 `@deck.gl/` 行是最快的核对方式。
-- **验证产物**：构建通过不等于渲染——deck.gl 需要 WebGL2，无头与 CI 环境出不了图，此时不要报告「已渲染」；`curl.exe -I http://localhost:5173/` 只能证明静态资源在。要确认效果请在用户机器的浏览器里打开，或让用户给截图后用 `read_image` 看。
-- **风险与权限**：装包、起 dev server、把 `dist` 暴露到局域网前先问用户；用 Mapbox 底图要提醒 token 与计费（换 MapLibre 免 token）；单图层约 1600 万项是上限，全量数据直接上传可能把标签页打崩，先用抽样子集验证再放大。
-- **常见失败**：空白画布查容器高度与底图；数据变了画面不变是 `data` 引用没变或漏了 `updateTriggers`，别在渲染路径里 `filter`/`map` 造新数组；tooltip 或点击无反应是 `pickable` 默认 `false`；交错模式异常查底图是否 WebGL2 与 `beforeId` 是否存在；卸载用 `map.removeControl(overlay)`，`MapboxOverlay` 没有公开的 `finalize()`。
+- **加载与引用**：单文件技能，无 reference；正文按 deck.gl 9.4.1 编写，先读「环境准备 → 安装」的子包对照表再决定装整包还是子包，图层属性查「核心 API」各层小节，「最佳实践」与「常见问题」可直接当调优与排错清单。底图细节用 `skill` 加载 `mapbox-gl-js`，三维对照用 `skill` 加载 `cesiumjs`，需要相邻技能就重新加载，不要 `read` 兄弟目录。
+- **执行环境**：`npm install` 与 `npm run build` 走 `ops_bash`（Windows 上 `npm` 是 `npm.cmd`，MSYS bash 用 `cmd //c npm run build` 更稳）；子包多、安装输出长，先重定向到 `install.log` 再用 `grep` 或 `read` 分段看。`vite`、`serve` 这类常驻进程必须用后台作业起，`job_output` 收启动行拿真实端口，验证后 `job_kill`；装 5 个以上子包这种流水线先 `todo_write` 记步骤。
+- **先探测版本**：`npm ls deck.gl @deck.gl/core @deck.gl/layers @deck.gl/geo-layers @deck.gl/mapbox` 一次看全；所有 `@deck.gl/*` 必须同为 9.4.1，混版最典型的症状是 `Cannot read properties of undefined`。整包安装最省事，子包安装要手动对齐版本；`maplibre-gl` 与 `@deck.gl/mapbox` 也可能互相牵连，报类型错时先降版本而不是改图层代码。
+- **验证产物**：`npm run build` 后 `npx serve dist`，用 `curl.exe -I http://localhost:5173/` 确认入口与静态资源；WebGL 是否真出图无法用退出码判断——环境允许截图时用 `read_image` 看画面，否则把 URL 交给用户并明说「构建通过但未验证渲染」。数据正确性可以单独校验：把 `getRenderedFeatures()` 或 `deck.pickObject()` 的结果打到控制台，核对条数与坐标，再和源数据对一遍；无头 CI 里 WebGL 不可用，构建通过不等于渲染正确，不要据此报「已渲染」。成品页面或截图用 `present` 交付。
+- **风险与权限**：装包、起 dev server、占端口前用 `ask_user_question` 征得同意；用 Mapbox 底图要提醒 `accessToken` 与计费，token 走环境变量、不进源码与报告。`interleaved: true` 要求底图是 WebGL2 上下文，改渲染模式前先确认底图版本与 `beforeId` 指向的图层确实存在；生产环境不要开 luma.gl 的 debug 模式。
+- **常见失败**：空白画布先查容器有没有显式高度（canvas 本身是透明层）；数据变了画面不变是 `data` 引用没变或访问器依赖未声明，用 `updateTriggers` 或换新数组；tooltip 与点击无反应是 `pickable` 默认 `false`，点太小可调大 `pickingRadius`；百万点位卡顿先开 `gpuAggregation` 并让访问器保持轻量，图层数控制在百级以内。

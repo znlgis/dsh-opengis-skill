@@ -1,24 +1,17 @@
 ---
 name: geotools
 description: "Use when building Java GIS apps on GeoTools 35.2 (JDK 17) — org.geotools:gt-main / gt-shapefile / gt-geopkg / gt-epsg-hsql from repo.osgeo.org (not Maven Central), CQL/ECQL filters, CRS.decode plus JTS.transform reprojection, StreamingRenderer PNG output, and disposing DataStore/SimpleFeatureIterator."
-tags:
-  - java
-  - gis
-  - ogc
-  - wms
-  - wfs
-  - vector
-  - raster
-  - crs
-  - rendering
-  - jts
+license: MIT
+metadata:
+  category: gis
+  tags: "java, gis, ogc, wms, wfs, vector, raster, crs, rendering, jts"
 ---
 
 > **项目地址：** <https://github.com/geotools/geotools>
 >
 > **Maven GroupId：** `org.geotools`
 >
-> **最新版本：** 35.2（2026-10-16，[OSGeo Maven 仓库](https://repo.osgeo.org/repository/release/)）
+> **最新版本：** 35.2（2026-10-16，截至 2026-11，[OSGeo Maven 仓库](https://repo.osgeo.org/repository/release/)）
 >
 > **许可证：** LGPL 2.1
 >

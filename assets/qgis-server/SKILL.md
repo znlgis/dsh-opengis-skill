@@ -1,23 +1,17 @@
 ---
 name: qgis-server
 description: "Use when publishing QGIS projects (.qgs/.qgz) as OGC web services — WMS GetMap/GetPrint, WFS and WFS-T, WMTS, OGC API Features via qgis_mapserv.fcgi with Apache mod_fcgid, Nginx, or Docker, plus QGIS_SERVER_* tuning (MAX_THREADS, PARALLEL_RENDERING, LOG_STDERR); covers \"Service unknown or unsupported\" and MAP/GetCapabilities checks. QGIS 4.2.3 and LTR 3.44.15."
-tags:
-  - qgis
-  - server
-  - wms
-  - wfs
-  - wmts
-  - ogc
-  - fcgi
-  - map
-  - web
+license: MIT
+metadata:
+  category: gis
+  tags: "qgis, server, wms, wfs, wmts, ogc, fcgi, map, web"
 ---
 
 > **项目地址：** <https://github.com/qgis/QGIS>
 >
-> **官方文档：** <https://docs.qgis.org/3.44/en/docs/server_manual/>（`/latest/` 目前 302 到 3.44 手册，4.2 手册尚未单独发布）
+> **官方文档：** <https://docs.qgis.org/4.2/en/docs/server_manual/>（4.2 文档挂在 `/testing/` 路径下；`/latest/` 重定向到 3.44 LTR 手册，查 LTR 行为时用 <https://docs.qgis.org/3.44/en/docs/server_manual/>）
 >
-> **最新版本：** 4.2.3（稳定版）；LTR 3.44.15（截至 2026-10，实测 `qgis/qgis` 镜像 tag 与 <https://qgis.org/download/>）
+> **最新版本：** 4.2.3（官网 Latest Release）；LTR 3.44.15（截至 2026-11，实测 `qgis/qgis` 镜像 tag 与 <https://qgis.org/download/>）
 >
 > **许可证：** GPL-2.0
 
@@ -187,7 +181,7 @@ location /qgis {
 
 1. **版本对齐**：QGIS Server 与生成项目的 QGIS Desktop 尽量使用相同主版本；跨大版本打开旧项目可能因图层/表达式不兼容而报错。生产环境优先 LTR。
 2. **优先 `.qgz`**：`.qgz` 是压缩的单文件项目，便于分发并避免路径遗漏；配合 `QGIS_PROJECT_FILE` 固定默认项目。
-3. **日志走 stderr**：使用 `QGIS_SERVER_LOG_STDERR` 交给系统日志收集，`QGIS_SERVER_LOG_FILE` 已废弃并计划在 QGIS 5.0 移除。
+3. **日志走 stderr**：使用 `QGIS_SERVER_LOG_STDERR` 交给系统日志收集，`QGIS_SERVER_LOG_FILE` 已废弃。
 4. **并行渲染与线程**：高并发栅格出图时设置 `QGIS_SERVER_PARALLEL_RENDERING=true`，并用 `QGIS_SERVER_MAX_THREADS` 控制 CPU 占用。
 5. **项目缓存**：多项目场景调大 `QGIS_SERVER_PROJECT_CACHE_SIZE`，减少重复加载开销。
 6. **容错**：允许部分图层缺失时设 `QGIS_SERVER_IGNORE_BAD_LAYERS=true`，避免整份项目不可用。

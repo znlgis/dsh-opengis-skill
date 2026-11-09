@@ -116,3 +116,59 @@ test("isSkillName accepts only the public kebab-case grammar", () => {
 	assert.equal(isSkillName("-gdal"), false);
 	assert.equal(isSkillName(42), false);
 });
+const SIX_FIELD = String.raw`---
+name: gdal
+description: "Use when processing raster data."
+license: MIT
+metadata:
+  category: gis
+  tags: "gdal, ogr, cli, raster, vector"
+---
+
+# GDAL
+`;
+
+test("parses the six-field schema with a nested metadata block", () => {
+	const parsed = parseSkillFile(SIX_FIELD, "gdal/SKILL.md");
+	assert.equal(parsed.name, "gdal");
+	assert.equal(parsed.license, "MIT");
+	assert.equal(parsed.metadata.category, "gis");
+	assert.deepEqual(parsed.metadata.tags, ["gdal", "ogr", "cli", "raster", "vector"]);
+	assert.deepEqual(parsed.frontmatterFields, ["name", "description", "license", "metadata"]);
+	assert.equal(parsed.content, "# GDAL");
+});
+
+test("accepts a nested tags sequence as well as a comma-separated string", () => {
+	const raw = String.raw`---
+name: sequenced
+description: "Use when proving the sequence form."
+metadata:
+  category: gis
+  tags:
+    - alpha
+    - beta
+---
+
+body
+`;
+	const parsed = parseSkillFile(raw, "sequenced/SKILL.md");
+	assert.deepEqual(parsed.metadata.tags, ["alpha", "beta"]);
+});
+
+test("reports absent optional fields without inventing them", () => {
+	const raw = "---\nname: minimal\ndescription: \"Use when minimal.\"\n---\n\nbody\n";
+	const parsed = parseSkillFile(raw, "minimal/SKILL.md");
+	assert.equal(parsed.license, undefined);
+	assert.deepEqual(parsed.metadata, { tags: [] });
+	assert.deepEqual(parsed.frontmatterFields, ["name", "description"]);
+});
+
+test("rejects an indented field that is not inside a nested block", () => {
+	const raw = "---\nname: broken\ndescription: \"Use when broken.\"\n  stray: value\n---\nbody";
+	assert.throws(() => parseSkillFile(raw, "broken/SKILL.md"), /indented field "stray" outside a nested block/u);
+});
+
+test("rejects a sequence item outside a nested block", () => {
+	const raw = "---\nname: broken\ndescription: \"Use when broken.\"\n- stray\n---\nbody";
+	assert.throws(() => parseSkillFile(raw, "broken/SKILL.md"), /sequence item outside a nested block/u);
+});

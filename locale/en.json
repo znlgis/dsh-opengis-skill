@@ -1,6 +1,6 @@
 {
   "meta": {
     "title": "OpenGIS Skills",
-    "description": "40 GIS skills from opengis-skills (GDAL, QGIS, GeoServer, PostGIS, DuckDB Spatial, JTS, CesiumJS, OpenLayers and more), loaded on demand with DeepSeek Harness execution guidance."
+    "description": "40 GIS skills from opengis-skills (GDAL, QGIS, GeoServer, PostGIS, DuckDB Spatial, JTS, CesiumJS, OpenLayers and more) loaded on demand, each extended with a DeepSeek Harness execution layer: tool mapping, background jobs, artifact verification and consent gates."
   }
 }

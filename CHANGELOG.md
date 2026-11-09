@@ -5,6 +5,61 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.0] - 2026-11-09
+
+### Added
+
+- **Upstream routing metadata on the provider candidate.** The frontmatter reader now
+  parses the Agent Skills six-field schema, including the nested
+  `metadata{category,tags}` block, and the provider exposes `metadata` on every
+  candidate (`SkillCandidate.metadata`); definitions stay clean because
+  `SkillSummary` does not allow that field. Tag lists are parsed into arrays, and the
+  top-level field order is kept so validation can prove nothing illegal was added.
+- **Harness-specificity gate for the adaptation layer.** Every `adaptations/<skill>.md`
+  must now cite at least two DeepSeek Harness tools from a fixed whitelist (and must
+  stay between 900 and 4000 characters), while `common.md` must cite at least six and
+  carry at least twelve points. `citedTools()` is exported and shared by the plugin,
+  the checker and the tests, so "read the file" prose no longer passes for tool mapping.
+- **Asset content-contract validation.** `npm run validate` now rejects illegal
+  frontmatter fields, a missing MIT license, a non-`gis` category, malformed or
+  oversized tag lists, descriptions over 500 characters / not starting with
+  `Use when` / carrying angle brackets or CJK / duplicated across skills, SKILL.md
+  files over 500 lines, and `reference/` files the body never links. Stale freshness
+  markers, thin FAQ tables, reference files without a table of contents, code fences
+  without a language and emoji are reported as warnings so an upstream editorial commit
+  cannot block a release.
+- Tests for the six-field parser (nested metadata, tag list, field order, illegal
+  nested forms) and for the new validator rejections.
+
+### Changed
+
+- **Re-synced the vendored GIS skills from opengis-skills `6562616` to `e47ff34`.**
+  Upstream migrated every skill to the Agent Skills specification (six legal
+  frontmatter fields, `metadata.tags` replacing the top-level `tags` array), added
+  table-of-contents blocks to references, and refreshed 30+ upstream versions —
+  PostGIS 3.7.0, CesiumJS 1.147.0, deck.gl 9.4.1, GeoLibre 3.7.0, GeoServer Cloud
+  3.0.2.1, Mapbox GL JS 3.34.2 and others. The snapshot keeps byte parity: 66 asset
+  files, SHA-256 manifest updated.
+- **All 40 `adaptations/<skill>.md` files were rewritten against the new bodies.**
+  Each one names the version baseline the body now claims, the exact commands to probe
+  it, a verification criterion that is not "exit code 0", and the skill's real
+  irreversible operations; long-running work (services, full imports, builds) is routed
+  to background jobs with `job_output`/`job_kill`, rendered output is checked with
+  `read_image`, deliverables go through `present`, and destructive choices go through
+  `ask_user_question`. `common.md` gained skill loading via the `skill` tool, sibling
+  skill loading instead of reading `../<skill>/SKILL.md`, reference section targeting
+  through `## Contents`, `todo_write`/`subagent` orchestration, `present` delivery,
+  failure triage and an explicit "do not fabricate" rule.
+- README, locale metadata and the package description describe the execution layer, the
+  metadata pass-through and the new validation split (errors vs warnings).
+
+### Fixed
+
+- The freshness check compared against a string instead of a regular expression, so it
+  warned on every asset; it is now a real `/截至 \d{4}-\d{2}/u` match.
+- The sync fixture and the adaptation fixtures were brought up to the new length, tool
+  and frontmatter contract so the test suite still exercises the rules it documents.
+
 ## [0.2.0] - 2026-10-27
 
 ### Added

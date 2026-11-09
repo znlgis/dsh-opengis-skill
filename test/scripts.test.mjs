@@ -77,13 +77,13 @@ function syntheticAdaptation(name) {
 	return [
 		"## DeepSeek Harness 使用建议",
 		"",
-		"- **加载与引用**：用 \`skill(\"" + name + "\")\` 加载，参考文件按 Base directory 相对读取。",
+		"- **加载与引用**：用 \`skill\` 按名 \`" + name + "\` 加载，参考文件按 Base directory 相对读取。",
 		"- **执行环境**：命令走 \`ops_bash\`，Windows 原生命令走 \`pwsh\`。",
 		"- **先探测版本**：先跑 \`--version\` 确认工具可用，再按版本挑命令。",
 		"- **验证产物**：重新打开输出文件核对元数据，不要只看退出码。",
 		"- **风险与权限**：覆盖、删除、安装与使用凭据前先向用户确认。",
 		"",
-		"这是测试夹具生成的占位适配文件，只用于让校验脚本走完资产检查；内容长度足以通过结构阈值，且不含任何真实建议。"
+		"这是测试夹具生成的占位适配文件，只用于让校验脚本走完资产检查；内容长度足以通过结构阈值，且不含任何真实建议。".repeat(20)
 	].join("\n");
 }
 
@@ -142,6 +142,48 @@ test("validate-skills rejects an adaptation citing a file the skill does not shi
 		const result = runNode(join(scratch, "scripts", "validate-skills.mjs"), [], scratch);
 		assert.notEqual(result.status, 0, "a dangling reference citation must fail validation");
 		assert.match(result.stdout + result.stderr, /cites reference\/does-not-exist\.md/u);
+	} finally {
+		rmSync(scratch, { recursive: true, force: true });
+	}
+});
+
+test("validate-skills rejects an illegal frontmatter field", () => {
+	const scratch = mkdtempSync(join(tmpdir(), "opengis-validate-field-"));
+	try {
+		copyRepository(scratch);
+		const asset = join(scratch, "assets", "gdal", "SKILL.md");
+		writeFileSync(asset, readFileSync(asset, "utf8").replace("license: MIT", "license: MIT\ntags:\n  - gdal"));
+		const result = runNode(join(scratch, "scripts", "validate-skills.mjs"), [], scratch);
+		assert.notEqual(result.status, 0, "an illegal frontmatter field must fail validation");
+		assert.match(result.stdout + result.stderr, /illegal frontmatter field "tags"/u);
+	} finally {
+		rmSync(scratch, { recursive: true, force: true });
+	}
+});
+
+test("validate-skills rejects a description the model cannot route on", () => {
+	const scratch = mkdtempSync(join(tmpdir(), "opengis-validate-desc-"));
+	try {
+		copyRepository(scratch);
+		const asset = join(scratch, "assets", "gdal", "SKILL.md");
+		const text = readFileSync(asset, "utf8");
+		writeFileSync(asset, text.replace(/^description: "Use when/mu, 'description: "Handles'));
+		const result = runNode(join(scratch, "scripts", "validate-skills.mjs"), [], scratch);
+		assert.notEqual(result.status, 0, "a description without the routing prefix must fail validation");
+		assert.match(result.stdout + result.stderr, /description must start with "Use when"/u);
+	} finally {
+		rmSync(scratch, { recursive: true, force: true });
+	}
+});
+
+test("validate-skills rejects a reference file the body never links", () => {
+	const scratch = mkdtempSync(join(tmpdir(), "opengis-validate-orphan-"));
+	try {
+		copyRepository(scratch);
+		writeFileSync(join(scratch, "assets", "gdal", "reference", "orphan.md"), "# Orphan\n\nnever linked\n");
+		const result = runNode(join(scratch, "scripts", "validate-skills.mjs"), [], scratch);
+		assert.notEqual(result.status, 0, "an unlinked reference file must fail validation");
+		assert.match(result.stdout + result.stderr, /does not link reference\/orphan\.md/u);
 	} finally {
 		rmSync(scratch, { recursive: true, force: true });
 	}
@@ -234,7 +276,7 @@ test(
 			mkdirSync(join(upstream, "gis", "alpha", "reference"), { recursive: true });
 			writeFileSync(
 				join(upstream, "gis", "alpha", "SKILL.md"),
-				"---\r\nname: alpha\r\ndescription: \"Alpha skill.\"\r\n---\r\n\r\n# Alpha\r\n"
+				"---\r\nname: alpha\r\ndescription: \"Use when proving the sync fixture.\"\r\nlicense: MIT\r\nmetadata:\r\n  category: gis\r\n  tags: \"alpha, beta, gamma, delta, epsilon\"\r\n---\r\n\r\n# Alpha\r\n"
 			);
 			writeFileSync(join(upstream, "gis", "alpha", "reference", "binary.bin"), Buffer.from([0x00, 0x0d, 0x0a, 0x01]));
 			execFileSync("git", ["init", "-q"], { cwd: upstream });

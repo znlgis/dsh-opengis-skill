@@ -1,8 +1,8 @@
 ## DeepSeek Harness 使用建议
 
-- **加载与引用**：本技能只有 SKILL.md，没有 reference 子目录；工具名与参数不要凭记忆写，先 `whitebox_tools --listtools <关键词>` 找 CamelCase 名称，再 `whitebox_tools --toolparameters=<Tool>` 取 JSON 参数定义，最后才拼 `--run=` 命令行。`--listtools` 输出很长，重定向到工作区文件后再 `grep` 取需要的行。
-- **执行环境**：`whitebox_tools`（Windows 为 `whitebox_tools.exe`）走 `ops_bash`，路径含空格要加引号；正文的 `cd /opt/WBT` 在 Windows 换成解压目录，用 `./whitebox_tools.exe --version`（`pwsh` 里是 `.\whitebox_tools.exe --version`）。源码编译 `python build.py` 要跑几分钟，放后台作业，用 `job_output` 看进度。
-- **先探测版本**：`whitebox_tools --version` 输出核心库版本（本技能基准 2.4.0），`python -c "import whitebox; print(whitebox.__version__)"` 输出 Python 封装版本（2.3.6）；两者不一致是设计如此，能力以二进制为准，汇报时要说明用的是哪一个。`pip install whitebox` 首次调用会联网下载二进制，离线环境必须提前备好 WBT 目录。
-- **验证产物**：先用 `glob` 或 `ls -l` 确认输出文件真的生成，再用 GDAL 读数值——`gdalinfo -json slope.tif` 看范围与 NoData，必要时读数组断言坡度量级；只看退出码判断不了分析对错。水文链路要额外检查 `accum.tif` 的极值是否与流域面积量级相符，全为 1 通常意味着上游没决口或单位不一致。
-- **风险与权限**：编译、`pip install`、下载二进制前征得用户同意，批量处理前确认磁盘占用；显式设定 `--wd` 或全部用绝对路径，否则相对路径会落到意外目录；DEM 水平与垂直单位不同时显式传 `--zfactor`，不要假设两者一致。
-- **常见失败**：跑完既无输出也无报错，几乎都是 `--wd` 与相对路径不匹配；`--run` 报工具不存在是名字大小写错，用 `--listtools` 核对；参数被忽略多是照抄了别的工具的参数名，用 `--toolparameters` 复核；平坦区大片无流向给 `FillDepressions` 打开 `--fix_flats=true`，或改用 `BreachDepressions`；LiDAR 工具只吃 LAS/LAZ，其它点云格式先用 PDAL 转换。
+- **加载与引用**：单文件技能，无 reference；命令骨架与常用工具参数看「核心命令」，DEM→河网→流域的完整流程看「典型工作流」，报错对照看「常见问题」。前后处理（重投影、栅格裁剪、格式转换）用 `skill` 加载 `gdal`，点云格式转换加载 `pdal`，交叉验证结果加载 `grass-gis`。
+- **执行环境**：`whitebox_tools` 二进制命令走 `ops_bash`（Windows 是 MSYS bash，写 `/d/tools/WBT/whitebox_tools.exe` 并整体加引号）；正文里的 `cd /opt/WBT` 是 Linux 路径，Windows 下先 `pwsh` 里确认解压目录（`Get-ChildItem C:\Tools\WBT`）再用绝对路径调用。`python build.py` 源码编译要 Rust 工具链且耗时数分钟，必须用后台作业跑（`run_in_background` + `job_output` 看进度）；`pip install whitebox` 首次调用会联网下载二进制，离线环境要手动放置 WBT 目录。
+- **先探测版本**：核心库正文按 2.4.0 编写（conda-forge 的 `whitebox_tools` 同为 2.4.0），PyPI 前端 `whitebox` 是 2.3.6，两者版本号不一致属正常。先跑 `whitebox_tools --version` 拿二进制版本，再跑 `python -c "import whitebox; print(whitebox.__version__)"` 拿封装版本；工具能力以二进制为准，回答里要说明按哪个版本写。上游 README 已标 legacy、新开发转向 `whitebox_next_gen`，但 2.4.0 仍是当前稳定版，不要把未发布的新仓库当依据。
+- **验证产物**：退出码 0 不算完成。先 `gdalinfo -json accum.tif` 看极值：流量累积的最大值应与流域面积/像元数同量级，若全是 1 说明 DEM 未决口或单位不一致；坡度在 0–90 度、坡向在 0–360；再 `ogrinfo -so streams.shp` 核对河网要素数与 CRS。渲染或阴影产物（`Hillshade`、`LidarHillshade`）用 `read_image` 真看一眼是否通体灰或空白。多步水文流水线用 `todo_write` 列「探测 → 决口 → 流向/累积 → 提河网 → 流域」并逐项核对中间文件。
+- **风险与权限**：`--wd` 之后的相对路径与 `--output=` 指向已有文件会直接覆盖，跑批量前先备份或换输出名，并用 `ask_user_question` 让用户在「换名输出 / 覆盖 / 先备份」之间选；下载二进制、源码编译装 Rust、改动 PATH 前也要先征得同意。大 DEM 内存占用高，先 `Clip` 到研究区或分块处理；`--toolparameters` 输出的 JSON 先写文件再 `read`/`grep`，不要整段刷进上下文。
+- **常见失败**：`whitebox_tools: command not found` 是目录没进 PATH，`cd` 到 WBT 目录或写绝对路径（Windows 记得 `.exe`）；跑完既无输出也无报错，几乎都是相对路径没对上 `--wd`，改用绝对路径重跑一次；`--run` 提示工具不存在是工具名大小写不对（必须是 `FlowAccumulationFullWorkflow` 这种 CamelCase），用 `--listtools` 确认真名；参数被忽略是照抄了别的工具的参数名，用 `--toolparameters=<Tool>` 取真实定义。

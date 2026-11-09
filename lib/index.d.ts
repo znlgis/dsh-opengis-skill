@@ -16,6 +16,14 @@ export interface OpenGisResourceBase {
 	path: string;
 }
 
+/** Upstream routing metadata carried on a candidate (never on a definition). */
+export interface OpenGisSkillMetadata {
+	/** Upstream category directory, always "gis" for this pack. */
+	category?: string;
+	/** Parsed upstream metadata.tags. */
+	tags: string[];
+}
+
 /** One skill summary returned by the provider catalog. */
 export interface OpenGisSkillCandidate {
 	name: string;
@@ -27,6 +35,7 @@ export interface OpenGisSkillCandidate {
 	locator: string;
 	path: string;
 	resourceBase: OpenGisResourceBase;
+	metadata: OpenGisSkillMetadata;
 }
 
 /** One loaded skill body returned by the provider; "content" also carries the DSH guidance. */

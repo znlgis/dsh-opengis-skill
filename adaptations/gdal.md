@@ -1,8 +1,8 @@
 ## DeepSeek Harness 使用建议
 
-- **加载与引用**：先按本技能正文定位工具，再按需 `read` `reference/vector-tools.md`、`reference/raster-tools.md`、`reference/data-formats.md`（路径相对 Base directory）；一次批量转换任务通常只需 vector 或 raster 其中一个参考文件。
-- **执行环境**：命令走 `ops_bash`；Windows 下示例里的 `apt-get install`/`sudo` 不可用，改用 conda-forge（`conda install -c conda-forge gdal`）或 `docker run --rm -v "$PWD:/data" -w /data osgeo/gdal:latest`，容器内路径与宿主路径要分开写。
-- **先探测版本**：`gdalinfo --version`、`ogrinfo --version`，再决定用新版统一 CLI 还是传统命令——本技能按 3.13.3 编写，`gdal raster`/`gdal vector` 需 3.11+，`gdal dataset check` 需 3.13+；缺 Python 绑定时 `gdal_calc.py`、`gdal_merge.py` 会不可用。
-- **验证产物**：栅格用 `gdalinfo -json out.tif` 核对驱动、尺寸、CRS 与 NoData，矢量用 `ogrinfo -so out.gpkg layer`（或 `ogrinfo -json`）核对要素数与几何类型；批量任务至少抽查一个输出，不要只看循环退出码。
-- **风险与权限**：`-overwrite`/`-append`、`gdal_edit.py`、写已有目标路径会就地改写数据，先备份或换输出名；访问 `/vsis3/` 需要真实凭据，安装 GDAL、改 `GDAL_DATA`/`PROJ_LIB` 前先征得用户同意。
-- **常见失败**：`ERROR 4: ... not recognized as a supported file format` 先查路径、扩展名与 `gdalinfo --formats`；驱动或投影异常时开 `CPL_DEBUG=ON` 并把输出重定向到日志，再用 `grep` 定位第一条错误。
+- **加载与引用**：正文按任务分三块——矢量看「矢量数据工具（OGR）」、栅格看「栅格数据工具（GDAL）」、环境变量与格式看对应小节；细节参数读 `reference/vector-tools.md` 的 `ogrinfo`/`ogr2ogr` 两节、`reference/raster-tools.md` 的 `gdal_translate`/`gdalwarp`/`gdal_calc.py` 等小节（先读文件开头的 `## Contents` 再按 `offset` 跳读），格式能力表读 `reference/data-formats.md`。一次格式转换通常只需要 vector 参考，不要三个文件全读。需要坐标转换知识时用 `skill` 加载 `proj`，导入后的发布用 `skill` 加载 `geoserver`。
+- **执行环境**：命令走 `ops_bash`。Windows 上 `apt-get`/`sudo` 不可用：本机装了 OSGeo4W 时直接调绝对路径（如 `/c/OSGeo4W/bin/ogr2ogr.exe`）或把 `C:\\OSGeo4W\\bin` 加进 `PATH`，否则用 conda-forge（`conda install -c conda-forge gdal`）或容器 `docker run --rm -v "$PWD:/data" -w /data osgeo/gdal:latest`（容器内写成 `/data/...`，别把宿主 `D:\\...` 路径直接传进去）。批量任务前先 `todo_write` 列出「探测版本 → 转换 → 抽检」，千级文件以上分批跑；整目录镶嵌、多源重投影这类几分钟以上的活放后台作业（`run_in_background`），再用 `job_output` 跟进度、`job_kill` 收尾，别让一次调用卡住会话。
+- **先探测版本**：`gdalinfo --version`、`ogrinfo --version` 一次拿到实际版本；正文按 3.13.3 编写，统一 CLI `gdal raster`/`gdal vector` 要 3.11+，`gdal dataset check` 要 3.13+，低版本只有 `gdal_translate`/`gdalwarp` 老命令；`gdal_calc.py`/`gdal_merge.py` 依赖随 GDAL 安装的 Python 脚本，缺 Python 绑定时要改用 `gdal raster calc` 或另装。
+- **验证产物**：栅格用 `gdalinfo -json out.tif` 核对驱动、尺寸、CRS、NoData 与 `overviews`，矢量用 `ogrinfo -so -al out.gpkg`（或 `-json`）核对图层名、要素数、几何类型与字段；文件存在不代表写成功，批量任务至少抽检首尾两个输出，再对全部输出跑一次 `ogrinfo -so` 汇总退出码。需要给用户看图（切片、渲染、DEM 地形）时用 `read_image` 真看一眼，成品用 `present` 交付。
+- **风险与权限**：`-overwrite`、`-append`、`gdal_edit.py`、`gdal_rasterize` 写已有目标路径都是就地改写，先备份或换输出名；`/vsis3/`、`/vsigs/` 需要真实云凭据；安装 GDAL、改 `GDAL_DATA`/`PROJ_LIB`、覆盖已有数据之前先向用户确认——用 `ask_user_question` 给出「换名输出/覆盖/先备份」三个选项，别自己决定。
+- **常见失败**：`ERROR 4: … not recognized as a supported file format` 先查路径、扩展名与 `gdalinfo --formats`；驱动或投影异常时开 `CPL_DEBUG=ON` 把输出重定向到 `run.log`，再 `grep -n "^ERROR" run.log | head` 定位第一条真实错误。多步流水线里中间产物命名带步骤前缀，失败时按步骤回滚，不要在半成品上继续叠加。

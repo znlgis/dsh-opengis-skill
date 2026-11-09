@@ -61,6 +61,12 @@ test("catalog lists every bundled GIS skill with unique kebab-case names", async
 		assert.ok(candidate.resourceBase.path.endsWith("/" + candidate.name), candidate.resourceBase.path + " must end with the skill name");
 		assert.equal(candidate.resourceBase.path.includes("\\"), false, candidate.resourceBase.path + " must use forward slashes");
 		assert.equal(Object.hasOwn(candidate, "content"), false, "the catalog must not carry instruction bodies");
+		// Upstream routing metadata rides on the candidate only: the host's
+		// SkillCandidate type allows it, SkillSummary (the definition) does not.
+		assert.equal(candidate.metadata.category, "gis", candidate.name + " must carry the upstream category");
+		assert.ok(Array.isArray(candidate.metadata.tags), candidate.name + " must carry a tag array");
+		assert.ok(candidate.metadata.tags.length >= 5, candidate.name + " must carry at least 5 upstream tags");
+		assert.equal(candidate.metadata.tags.every((tag) => /^[a-z0-9][a-z0-9.-]*$/u.test(tag)), true, candidate.name + " tags must stay lowercase identifiers");
 	}
 });
 
@@ -84,6 +90,7 @@ test("loading returns the current body without frontmatter", async () => {
 		assert.equal(definition.path, candidate.locator);
 		assert.deepEqual(definition.resourceBase, candidate.resourceBase);
 		assert.equal(Object.hasOwn(definition, "rank"), false, "a definition must not carry the catalog rank");
+		assert.equal(Object.hasOwn(definition, "metadata"), false, "a definition must not carry candidate metadata");
 	}
 });
 

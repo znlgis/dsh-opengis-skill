@@ -1,8 +1,8 @@
 ## DeepSeek Harness 使用建议
 
-- **加载与引用**：完整端点分组清单在 `reference/endpoints.md`（系统管理、工作空间、datastores、coveragestores、styles、security、`/gwc/rest/*`），路径按加载结果的 Base directory 解析；主文件的 10 个示例够用时不必展开参考文件。
-- **执行环境**：一律用 `curl.exe`（pwsh 里 `curl` 是别名、参数不同）；正文的 `\` 续行在 PowerShell 无效，请求体先用 `write` 落成 `body.json`，再 `curl.exe --data "@body.json"`，绕开不同 shell 的引号差异；`.zip`/`.tif` 上传用 `--data-binary @文件`，路径写正斜杠。
-- **先探测版本**：`curl.exe -s -u admin:geoserver http://localhost:8080/geoserver/rest/about/version.json` 确认是 3.0.2 并顺带看组件版本；这一条同时充当连通性与凭据探测，返回 401 属认证或安全规则问题，不是版本问题。
-- **验证产物**：每个写操作后立刻 GET 回读同一资源（`.../rest/workspaces/myws.json`、`.../rest/layers/myws:roads.json`），再发一次 WMS `GetMap` 取 `image/png` 用 `read_image` 确认非空；`?recurse=true` 删除后再 GET 应得 404；201 与退出码 0 都不构成成功。
-- **风险与权限**：凭据用环境变量传（`$env:GS_USER`、`$env:GS_PASS`），不要硬编码进脚本文本或回显；`?recurse=true` 删除、`POST /rest/reset`、清 GeoWebCache 缓存不可逆，执行前向用户确认。
-- **常见失败**：GET 正常但 POST/PUT 返回 401 是缺认证或 REST 访问规则被安全设置禁用；POST 400 先查单层包装 `{"workspace":{...}}` 与 `Content-Type`；Shapefile 必须打成含 `.shp`/`.shx`/`.dbf`/`.prj` 的 ZIP；改完 SLD 不生效要先 Truncate 该图层缓存。
+- **加载与引用**：正文按 GeoServer 3.0.2（2026-10-19 安全修复版）编写，端点全表在 `reference/endpoints.md`：先用 `read` 读该文件的 `## Contents` 定位小节，再按 `offset`/`limit` 取用，或 `grep` 搜 `/rest/security`、`coveragestores` 这类关键词，不要整文件硬读。正文的 10 个示例只覆盖高频操作；C# 客户端用法看「C# 客户端」一节，不打算用 .NET 就整段跳过。
+- **执行环境**：请求走 `ops_bash`（MSYS bash）里的 `curl.exe`——Windows 上 `curl` 是 PowerShell 别名、参数语义不同，脚本里一律写全名。正文的 `\` 续行在 `pwsh` 里无效，压缩成单行；JSON 请求体现在 bash 单引号里可用，但更稳的是写成 `body.json` 再用 `curl.exe --data-binary "@body.json"`，绕开各 shell 的引号与转义差异。批量发布（建 workspace → 传数据 → 绑样式）三步以上，先 `todo_write` 列步骤。
+- **先探测版本**：先 `curl.exe -s -u admin:geoserver http://localhost:8080/geoserver/rest/about/version.json` 拿到实际版本与组件清单，再决定用哪套端点。正文按 3.0.2 编写：本机若是 2.x，`/rest/services/{wms|wfs}/settings` 这类较新的服务设置端点可能不存在；3.x 的安全规则模型与 2.x 教程有差异，端点返回 404/405 时以 `reference/endpoints.md` 与官方 stable 文档为准，不要照抄正文示例。注意 cloud 版前缀是 `/geoserver/cloud/rest`，单体版是 `/geoserver/rest`。
+- **验证产物**：写操作后立刻 GET 回读同一资源（`.../rest/workspaces/myws.json`、`.../rest/layers/myws:roads.json`），再用 `curl.exe -o getmap.png -w "%{http_code}"` 发一次 WMS `GetMap`，用 `read_image` 看 png 非空、图例与范围合理；只凭 201 或退出码不算验证。改样式后要清 GWC 缓存（`/gwc/rest/seed/...` 的 truncate 请求），再用同一图层不同 `styles=` 对比出图。只取状态码、把响应体落盘，可避免上万行 XML 灌进上下文。
+- **风险与权限**：`?recurse=true` 删 workspace/store、`POST /rest/reset`、`PUT /rest/security/*` 改访问规则、改 admin 密码、清 GWC 缓存都不可逆或会断服务；连生产 GeoServer 前用 `ask_user_question` 给「先备份 / 只在测试实例跑 / 直接执行」选项。凭据用环境变量 `curl -u "$GS_USER:$GS_PASS"`，不写进脚本、不回显到报告；写操作先对测试实例演一遍。
+- **常见失败**：GET 200 但 POST/PUT 401 是认证或安全规则问题，不是版本问题；POST 400 且资源没建多半是漏了单层包装 `{"workspace":{...}}` 或 `Content-Type`；上传 Shapefile 失败检查 ZIP 内含 `.shp/.shx/.dbf/.prj` 且 PUT 到 `.../file.shp`；改配置没生效用 `POST /rest/reload`；循环建资源时逐条检查 HTTP 码，一失败即停，半套配置留在服务端比报错更难查。

@@ -16,11 +16,23 @@ export declare const SKILL_SEPARATOR: string;
 /** Labels every per-skill guidance must keep, in this order. */
 export declare const REQUIRED_LABELS: readonly string[];
 
-/** DeepSeek Harness tools the guidance may name, used to prove harness specificity. */
+/** Labels whose bullet must carry a concrete command or tool in backticks. */
+export declare const CONCRETE_LABELS: readonly string[];
+
+/** DeepSeek Harness tools every supported build exposes; the citation minimums count these. */
+export declare const CORE_TOOLS: readonly string[];
+
+/** Optional-plugin tools the guidance may name, but only with a documented fallback. */
+export declare const OPTIONAL_TOOLS: readonly string[];
+
+/** Every DeepSeek Harness tool name the guidance may cite: the union of CORE_TOOLS and OPTIONAL_TOOLS. */
 export declare const DSH_TOOLS: readonly string[];
 
 /** List the distinct DeepSeek Harness tool names cited in backticks, in citation order. */
 export declare function citedTools(text: string): string[];
+
+/** List the distinct core tool names cited in backticks, in citation order. */
+export declare function citedCoreTools(text: string): string[];
 
 /** Build the path of one per-skill adaptation file. */
 export declare function adaptationFile(root: string, name: string): string;

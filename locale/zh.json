@@ -1,6 +1,6 @@
 {
   "meta": {
     "title": "OpenGIS 技能包",
-    "description": "来自 opengis-skills 的 40 个 GIS 技能：GDAL、QGIS、GeoServer、PostGIS、DuckDB Spatial、JTS、CesiumJS、OpenLayers 等。正文与参考资料按需加载，并附带 DeepSeek Harness 执行层（工具映射、后台作业、产物验证、权限确认）。"
+    "description": "来自 opengis-skills 的 45 个 GIS 技能：GDAL、QGIS、GeoServer、PostGIS、DuckDB Spatial、JTS、GEOS、CesiumJS、OpenLayers、MapLibre、OpenDroneMap、STAC/COG 等。正文与参考资料按需加载，并附带 DeepSeek Harness 执行层（工具映射、后台作业、产物验证、权限确认）。"
   }
 }

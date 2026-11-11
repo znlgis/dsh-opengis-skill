@@ -6,9 +6,13 @@ import { fileURLToPath } from "node:url";
 import {
 	ADAPTATION_DIRECTORY,
 	adaptationProblems,
+	citedCoreTools,
+	citedTools,
 	commonProblems,
 	composeSkillContent,
+	CORE_TOOLS,
 	listAdaptations,
+	OPTIONAL_TOOLS,
 	readAdaptationSync,
 	readCommonSync,
 	SKILL_SEPARATOR
@@ -33,7 +37,8 @@ test("composeSkillContent keeps the vendored body first and adds both guidance b
 
 test("every vendored skill has a readable adaptation starting with the required heading", () => {
 	const skills = readSkillCatalog(assetsRoot);
-	assert.equal(skills.length, 40);
+	const manifest = JSON.parse(readFileSync(join(root, "upstream.json"), "utf8"));
+	assert.equal(skills.length, manifest.skillCount, "the catalog must match the recorded upstream skill count");
 	for (const skill of skills) {
 		const text = readAdaptationSync(adaptationRoot, skill.name);
 		assert.ok(text.startsWith("## DeepSeek Harness 使用建议"), skill.name + ".md must start with the per-skill heading");
@@ -101,4 +106,54 @@ test("adaptationProblems rejects structural damage", () => {
 test("commonProblems rejects a stub shared file", () => {
 	assert.ok(commonProblems("## DeepSeek Harness 通用约定\n\n- **加载与引用**：x").length > 0);
 	assert.deepEqual(commonProblems(readFileSync(join(adaptationRoot, "common.md"), "utf8")), []);
+});
+
+test("the tool whitelist splits core tools from optional-plugin capabilities", () => {
+	assert.ok(CORE_TOOLS.includes("ops_bash"), "ops_bash ships with every build");
+	assert.ok(CORE_TOOLS.includes("read_image"), "read_image ships with every build");
+	assert.ok(!CORE_TOOLS.includes("spawn_teammate"), "Agent Teams is an optional plugin");
+	assert.ok(OPTIONAL_TOOLS.includes("spawn_teammate"), "Agent Teams tools stay citable");
+	assert.ok(OPTIONAL_TOOLS.includes("windows_desktop"), "desktop control is an optional plugin");
+	const text = ["`skill`", "`spawn_teammate`", "`wait_agent`", "`read`"].join(" ");
+	assert.deepEqual(citedTools(text), ["skill", "spawn_teammate", "wait_agent", "read"]);
+	assert.deepEqual(citedCoreTools(text), ["skill", "read"], "only core tools count toward the minimum");
+});
+
+test("adaptationProblems rejects optional-only citations and prose-only probes", () => {
+	const body = [
+		"## DeepSeek Harness 使用建议",
+		"",
+		"- **加载与引用**：先读正文，再按需读参考文件。",
+		"- **执行环境**：命令在 shell 里跑。",
+		"- **先探测版本**：先看版本再决定命令。",
+		"- **验证产物**：检查输出文件是否正常。",
+		"- **风险与权限**：覆盖前先确认。",
+		"",
+		"补充说明：这段文字把文件长度补到阈值以上，让结构检查而不是长度检查决定结果。".repeat(30)
+	].join("\n");
+	assert.ok(adaptationProblems("gdal", body).some((problem) => problem.includes("core DeepSeek Harness tool")), "a file citing no tools must fail");
+	const optionalOnly = body.replace("先读正文", "先读正文（会话提供了 `spawn_teammate` 时可并行）");
+	assert.ok(
+		adaptationProblems("gdal", optionalOnly).some((problem) => problem.includes("core DeepSeek Harness tool")),
+		"optional-plugin tools must not satisfy the harness-specificity minimum"
+	);
+	const concrete = body
+		.replace("先看版本再决定命令。", "`gdalinfo --version` 确认实际版本后再决定命令。")
+		.replace("检查输出文件是否正常。", "`gdalinfo -json out.tif` 核对驱动、尺寸与 CRS。");
+	assert.ok(!adaptationProblems("gdal", concrete).some((problem) => problem.includes("must cite a concrete command")), "concrete probe/verify commands satisfy the gate");
+	const proseOnly = concrete.replace("`gdalinfo -json out.tif` 核对驱动、尺寸与 CRS。", "检查输出文件是否正常。");
+	assert.ok(
+		adaptationProblems("gdal", proseOnly).some((problem) => problem.includes('"验证产物" must cite a concrete command')),
+		"a verification bullet without a backticked command must be rejected"
+	);
+});
+
+test("commonProblems requires the shared guidance to cite core tools", () => {
+	const text = readCommonSync(adaptationRoot);
+	assert.ok(citedCoreTools(text).length >= 8, "the shared guidance must cite at least eight core tools");
+	assert.deepEqual(commonProblems(text), []);
+	assert.ok(
+		commonProblems(text.replaceAll("`", "")).some((problem) => problem.includes("core DeepSeek Harness tool")),
+		"stripping every tool citation must fail the shared guidance"
+	);
 });

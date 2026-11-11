@@ -5,6 +5,76 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.0] - 2026-11-11
+
+### Added
+
+- **Five new GIS skills synced from upstream**: `geos` (GEOS 3.15.0 C/C++ geometry
+  engine), `maplibre-gl-js` (MapLibre GL JS 6.17.0, token-free vector web maps),
+  `maplibre-native` (Android/iOS/desktop/Node native rendering), `opendronemap`
+  (ODM 3.6.2 / WebODM 4.0.0 photogrammetry pipeline) and `stac-cog-titiler`
+  (STAC 1.1.0 + COG + TiTiler 2.4.0 imagery pipeline). The pack now ships 45
+  skills / 71 asset files.
+- **Capability-tiered tool whitelist in the adaptation contract.** `lib/adaptations.js`
+  now splits the harness vocabulary into `CORE_TOOLS` (shipped with every supported
+  DeepSeek Harness build) and `OPTIONAL_TOOLS` (Agent Teams, desktop control,
+  scheduled tasks, derived subagents and MCP resource reads, all delivered by optional
+  plugins). The minimum citation counts are computed on core tools only, so a
+  guidance file that only names plugin capabilities no longer passes; optional tools
+  stay citable, but only together with the fallback for sessions that do not expose
+  them. `citedCoreTools()` is exported next to `citedTools()`.
+- **Concreteness gate for the two bullets that decay first.** The "先探测版本" and
+  "验证产物" bullets must each carry a backticked command or tool
+  (`CONCRETE_LABELS`), so "check the result" prose can no longer stand in for a probe
+  command or a verification step.
+- **Shared-guidance caching in the provider.** `adaptations/common.md` is read once per
+  process and reused across skill loads; only a successful read is memoized, a failure
+  is retried on the next load, and a caller's abort signal cannot cancel the shared
+  read for other callers.
+- Tests for the core/optional split, the optional-only rejection and the
+  prose-only probe/verification rejection.
+
+### Changed
+
+- **Re-synced the vendored GIS skills from opengis-skills `e47ff34` to `55b87f4`.**
+  Upstream added the five skills above and refreshed 20+ bodies: GDAL's unified
+  `gdal vector/raster` CLI argument order and `--overwrite`, `gdal dataset check`
+  exit code, GeoPandas 1.2.0 (`make_grid`, `read_file_info`, GeoParquet 2.0,
+  pyogrio options), Shapely 2.2.0 (`minimum_width`, `get_segments`,
+  `transform_coordseq`, `split`, `coverage_clean`, bundled GEOS 3.14.1), PDAL 2.10
+  (`filters.m3c2`, `filters.radiusassign`, `p<percentile>` bands, GDAL 3.8 build
+  floor), DuckDB's built-in GEOMETRY type plus `INSTALL AND LOAD spatial`,
+  `ST_CRS`/`ST_SetCRS`, GRASS 8.5 (`grass.tools`, JSON output, GDAL 3.7+/PROJ 9.0+
+  requirements), MapServer's `shp2img` → `map2img` rename, Mapsui 5.x
+  `WmsProvider.CreateAsync`, GeoNode's in-container version probe, WhiteboxTools'
+  tool-discovery helpers and Spatialite's CLI option order. The snapshot keeps byte
+  parity: 71 asset files, SHA-256 manifest updated.
+- **The shared adaptation was rewritten around what this harness actually does**, not
+  around generic shell advice: foreground timeouts promoted to background jobs,
+  truncated output and `spillPath`, `run_code` for batching tool calls, the bundled
+  Python runtime (numpy/pandas/Pillow but no GDAL/Shapely/GeoPandas bindings), optional
+  plugins vs the single-session fallback, GUI verification boundaries, and a
+  "do not fabricate" rule. The file now carries 19 points and cites 19 core tools.
+- Per-skill adaptations were refreshed against the new bodies (version baselines,
+  renamed commands, removed workarounds) and the sibling-skill pointers gained the
+  newly vendored skills (MapLibre for the web-map family, STAC/COG for
+  `opengis-all`).
+- README, locale metadata and the package description describe 45 skills, the
+  core/optional split, the concreteness gate and the new pinned upstream commit.
+
+### Fixed
+
+- `adaptations/qgis-server.md` named no execution tool, so it could not be told apart
+  from tool-agnostic upstream prose; the execution bullet now covers the container,
+  `curl.exe` and background-job path.
+- `adaptations/mapserver.md` still claimed `gml_include_items` was a MapServer 8.x
+  default; upstream corrected this to "since 4.6", and the guidance follows.
+- `adaptations/mapsui.md` warned about a leftover synchronous `new WmsProvider(...)`
+  in the body; the refreshed body uses `WmsProvider.CreateAsync` everywhere, so the
+  warning is gone.
+- `adaptations/geonode.md` probed the version via `curl /version.txt`, which upstream
+  replaced with an in-container `docker compose exec django python -c ...` probe.
+
 ## [0.3.0] - 2026-11-09
 
 ### Added

@@ -1,6 +1,6 @@
 ## DeepSeek Harness 使用建议
 
-- **加载与引用**：单文件技能，无 reference；正文按 deck.gl 9.4.1 编写，先读「环境准备 → 安装」的子包对照表再决定装整包还是子包，图层属性查「核心 API」各层小节，「最佳实践」与「常见问题」可直接当调优与排错清单。底图细节用 `skill` 加载 `mapbox-gl-js`，三维对照用 `skill` 加载 `cesiumjs`，需要相邻技能就重新加载，不要 `read` 兄弟目录。
+- **加载与引用**：单文件技能，无 reference；正文按 deck.gl 9.4.1 编写，先读「环境准备 → 安装」的子包对照表再决定装整包还是子包，图层属性查「核心 API」各层小节，「最佳实践」与「常见问题」可直接当调优与排错清单。底图细节用 `skill` 加载 `mapbox-gl-js`（要免 token 的开源底图改加载 `maplibre-gl-js`，`MapboxOverlay` 的默认搭档），三维对照用 `skill` 加载 `cesiumjs`，需要相邻技能就重新加载，不要 `read` 兄弟目录。
 - **执行环境**：`npm install` 与 `npm run build` 走 `ops_bash`（Windows 上 `npm` 是 `npm.cmd`，MSYS bash 用 `cmd //c npm run build` 更稳）；子包多、安装输出长，先重定向到 `install.log` 再用 `grep` 或 `read` 分段看。`vite`、`serve` 这类常驻进程必须用后台作业起，`job_output` 收启动行拿真实端口，验证后 `job_kill`；装 5 个以上子包这种流水线先 `todo_write` 记步骤。
 - **先探测版本**：`npm ls deck.gl @deck.gl/core @deck.gl/layers @deck.gl/geo-layers @deck.gl/mapbox` 一次看全；所有 `@deck.gl/*` 必须同为 9.4.1，混版最典型的症状是 `Cannot read properties of undefined`。整包安装最省事，子包安装要手动对齐版本；`maplibre-gl` 与 `@deck.gl/mapbox` 也可能互相牵连，报类型错时先降版本而不是改图层代码。
 - **验证产物**：`npm run build` 后 `npx serve dist`，用 `curl.exe -I http://localhost:5173/` 确认入口与静态资源；WebGL 是否真出图无法用退出码判断——环境允许截图时用 `read_image` 看画面，否则把 URL 交给用户并明说「构建通过但未验证渲染」。数据正确性可以单独校验：把 `getRenderedFeatures()` 或 `deck.pickObject()` 的结果打到控制台，核对条数与坐标，再和源数据对一遍；无头 CI 里 WebGL 不可用，构建通过不等于渲染正确，不要据此报「已渲染」。成品页面或截图用 `present` 交付。

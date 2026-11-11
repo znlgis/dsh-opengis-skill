@@ -42,7 +42,7 @@ function copyRepository(destination) {
  * Reconcile the copied DSH adaptation layer with a fixture's assets/ directory:
  * drop files for skills the fixture no longer has and synthesize a minimal file
  * for skills that arrived without one. A fixture that swaps the assets for a
- * one-skill checkout would otherwise carry 40 orphan adaptations.
+ * one-skill checkout would otherwise carry one orphan adaptation per skill.
  *
  * @param destination - the scratch repository root.
  */
@@ -80,7 +80,7 @@ function syntheticAdaptation(name) {
 		"- **加载与引用**：用 \`skill\` 按名 \`" + name + "\` 加载，参考文件按 Base directory 相对读取。",
 		"- **执行环境**：命令走 \`ops_bash\`，Windows 原生命令走 \`pwsh\`。",
 		"- **先探测版本**：先跑 \`--version\` 确认工具可用，再按版本挑命令。",
-		"- **验证产物**：重新打开输出文件核对元数据，不要只看退出码。",
+		"- **验证产物**：用 \`read\` 重新打开输出文件核对元数据，不要只看退出码。",
 		"- **风险与权限**：覆盖、删除、安装与使用凭据前先向用户确认。",
 		"",
 		"这是测试夹具生成的占位适配文件，只用于让校验脚本走完资产检查；内容长度足以通过结构阈值，且不含任何真实建议。".repeat(20)

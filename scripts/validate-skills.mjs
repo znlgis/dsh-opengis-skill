@@ -28,8 +28,9 @@
  *      digest per vendored file; text files must not contain CR bytes.
  *  11. adaptations/: one DeepSeek Harness guidance file per vendored skill plus
  *      "common.md", with the required headings, ordered labels, length budget,
- *      a minimum number of cited DeepSeek Harness tools, links that resolve
- *      against the skill directory, and no orphan files.
+ *      a minimum number of cited *core* tools (optional-plugin tools do not
+ *      count), concrete commands in the probe and verification bullets, links
+ *      that resolve against the skill directory, and no orphan files.
  *  12. Non-fatal warnings (unparseable syncedAt, non-public npm registry).
  *  13. A catalog size/file/byte/token summary.
  *

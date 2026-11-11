@@ -6,9 +6,12 @@
 > `reference/*.md` files are loaded on demand. Vendored bodies stay byte-identical to
 > upstream, and a separate `adaptations/` layer is appended when a skill is loaded —
 > one DeepSeek Harness guidance block per skill plus a shared one (tool mapping,
-> Windows rewrites, background jobs, artifact verification, consent gates, sandbox
-> semantics), each block required to name at least two harness tools so the layer stays
-> about *this* harness instead of repeating tool-agnostic advice. Upstream routing
+> Windows rewrites, background jobs, spill files, artifact verification, consent gates,
+> sandbox semantics, optional-plugin fallbacks). A per-skill block must name at least
+> two *core* harness tools and give a concrete probe command and a concrete verification
+> command, so the layer stays about *this* harness instead of repeating tool-agnostic
+> advice the upstream bodies already carry; optional-plugin tools (Agent Teams, desktop
+> control, scheduled tasks) may be cited only together with their fallback. Upstream routing
 > metadata (`metadata.category` and `metadata.tags` from the Agent Skills six-field
 > frontmatter) is exposed on the provider candidate. Zero runtime dependencies: every
 > asset ships inside the npm package.
@@ -20,13 +23,13 @@ DeepSeek Harness 的 **OpenGIS 技能包插件**：把 [opengis-skills](https://
 
 ## 特性
 
-- **覆盖 GIS 全链路（40 个技能）**：GDAL、GDAL API、QGIS（qgis_process / PyQGIS / QGIS Server）、GeoServer（含 REST API 与 Cloud）、GeoNode、MapServer、PostGIS、DuckDB Spatial、SpatiaLite、PROJ、ProjNet4GeoAPI、PDAL、GRASS GIS、WhiteboxTools、JTS、NetTopologySuite、Esri Geometry API（Java/.NET）、Shapely、GeoPandas、GeoPipeAgent、OpenGisDAF、CesiumJS、OpenLayers、Leaflet、BruTile、Mapbox GL JS、deck.gl、Kepler.gl、GeoLibre、SharpMap、Mapsui、GeoTools、OpenGIS Utils（Java/.NET），以及 `opengis-all` 全流程索引。
+- **覆盖 GIS 全链路（45 个技能）**：GDAL、GDAL API、QGIS（qgis_process / PyQGIS / QGIS Server）、GeoServer（含 REST API 与 Cloud）、GeoNode、MapServer、PostGIS、DuckDB Spatial、SpatiaLite、PROJ、ProjNet4GeoAPI、PDAL、GRASS GIS、WhiteboxTools、JTS、NetTopologySuite、Esri Geometry API（Java/.NET）、GEOS、Shapely、GeoPandas、GeoPipeAgent、OpenGisDAF、CesiumJS、OpenLayers、Leaflet、BruTile、Mapbox GL JS、MapLibre GL JS、MapLibre Native、deck.gl、Kepler.gl、GeoLibre、OpenDroneMap、STAC/COG/TiTiler、SharpMap、Mapsui、GeoTools、OpenGIS Utils（Java/.NET），以及 `opengis-all` 全流程索引。
 - **按需加载**：注册的是 skill provider（`ctx.skills.registerProvider`），发现阶段只读 frontmatter；正文每次加载时读取，参考资料（`reference/*.md`）通过技能目录（resource base）相对解析。
-- **零运行时依赖**：只用 Node 内置模块，不 import DSH 内部包；全部资产与适配文件随 npm 包分发，整个包解包后约 1.1 MB（其中技能资产约 800 kB、适配层约 110 kB），npm tarball 约 390 kB。
+- **零运行时依赖**：只用 Node 内置模块，不 import DSH 内部包；全部资产与适配文件随 npm 包分发，整个包解包后约 1.2 MB（其中技能资产 910 kB、适配层 147 kB），npm tarball 约 450 kB（138 个文件）。
 - **可同步上游**：`npm run sync` 从 opengis-skills 检出复制资产，记录上游 commit 与每个文件的 SHA-256 到 `upstream.json`，并重新生成本文下方技能清单。
 - **可启停**：单包同时是 bundle 与插件（`dsh.bundle.patch` 插入自身行），在 Plugins 里启用/停用即可。
 - **分层适配 DSH**：`assets/` 保持上游逐字节快照（SHA-256 清单可校验），DSH 专属建议单独放在 `adaptations/`：`common.md` 是通用执行约定（技能加载、引用分段读取、`ops_bash`/`pwsh`/`run_code` 分工、Windows 改写、后台作业、产物验证、`present` 交付、`ask_user_question` 确认、沙箱与审批）；`<skill>.md` 是该技能的执行建议（按需读哪个 reference、命令跑在哪、先探测什么版本、产物怎么验证、哪些操作要先确认）。加载技能时由 provider 把两段拼到正文之后，技能正文保持原样。
-- **适配层强制体现 harness**：每个 `<skill>.md` 必须 900–4000 字符、含 5 个固定要点（加载与引用 / 执行环境 / 先探测版本 / 验证产物 / 风险与权限），并且至少点名 2 个 DSH 工具（`ops_bash`、`job_output`、`read_image`、`ask_user_question` 等），否则 `npm run validate` 直接失败——避免适配层退化成与工具无关的泛泛建议。
+- **适配层强制体现 harness**：每个 `<skill>.md` 必须 900–4000 字符、含 5 个固定要点（加载与引用 / 执行环境 / 先探测版本 / 验证产物 / 风险与权限），至少点名 **2 个核心工具**（`ops_bash`、`read`、`job_output`、`read_image`、`ask_user_question` 等随包工具），并且「先探测版本」「验证产物」两条必须各带一条反引号命令——只写「检查一下」会被 `npm run validate` 拒绝。工具白名单按可用性拆成 `CORE_TOOLS`（每个受支持版本都有）与 `OPTIONAL_TOOLS`（Agent Teams、桌面控制、定时任务等可选插件），可选工具不计入最低数，且必须与「没有就退回」的备份方案一起写。
 - **上游路由元数据透出**：provider 解析上游六字段 frontmatter 里的 `metadata.category` 与 `metadata.tags`，作为 candidate 的 `metadata` 交给宿主（`SkillCandidate.metadata`），描述与本地化仍走 `description`；解析器同时保留字段顺序，供校验确认没有引入规范外字段。
 
 ## 兼容性
@@ -39,7 +42,7 @@ DeepSeek Harness 的 **OpenGIS 技能包插件**：把 [opengis-skills](https://
 ## 技能清单
 
 <!-- skills:count:start -->
-共 **40** 个技能，描述取自上游 frontmatter。
+共 **45** 个技能，描述取自上游 frontmatter。
 <!-- skills:count:end -->
 
 <!-- skills:start -->
@@ -48,15 +51,16 @@ DeepSeek Harness 的 **OpenGIS 技能包插件**：把 [opengis-skills](https://
 | `brutile` | Use when fetching or enumerating map tiles in .NET with BruTile 6.0.0 — HttpTileSource over HttpClient, KnownTileSources.Create, ITileSchema.GetTileInfos for a viewport and resolution, MbTilesTileSource for offline MBTiles, or wiring tiles into Mapsui/SharpMap. Also for missing 'BruTile.Desktop' packages, CS0246 on KnownTileSources, MBTiles SQLite native load failures, and 404s from inverted TMS/OSM y-axis. |
 | `cesiumjs` | Use when building browser-based 3D globes, 3D Tiles, CZML/time-dynamic data, or glTF models with npm cesium 1.147.0 — Viewer, Cesium3DTileset, Ion token (Cesium.Ion.defaultAccessToken), CESIUM_BASE_URL for Workers/Assets/Widgets, GCJ-02 tile offset, or debugging a black screen after a Vite/Webpack build. |
 | `deck-gl` | Use when visualizing large geospatial datasets in the browser with deck.gl 9.4.1 — ScatterplotLayer/GeoJsonLayer, HexagonLayer/ScreenGridLayer aggregation, MVTLayer/TileLayer, @deck.gl/mapbox MapboxOverlay over MapLibre, or debugging blank canvases, stale data props and mismatched @deck.gl/* subpackage versions. |
-| `duckdb-spatial` | Use when doing spatial analysis inside a DuckDB database or SQL pipeline — INSTALL spatial / LOAD spatial, ST_Read over Shapefile/GeoPackage/GeoJSON, ST_Point/ST_GeomFromText, ST_Intersects/ST_Contains/ST_Buffer joins, ST_Area_Spheroid, ST_AsMVT tiles, DuckDB-WASM in the browser; also for 'Extension spatial is not installed' or spatial function does not exist, GEOMETRY vs WKB_BLOB friction, and exporting query results to GeoParquet. DuckDB 2.0 built-in spatial extension. |
+| `duckdb-spatial` | Use when doing spatial analysis inside a DuckDB database or SQL pipeline — INSTALL spatial / LOAD spatial, ST_Read over Shapefile/GeoPackage/GeoJSON, ST_Point/ST_GeomFromText, ST_Intersects/ST_Contains/ST_Buffer joins, ST_Area_Spheroid, ST_AsMVT tiles, DuckDB-WASM; also for 'Extension spatial is not installed' or spatial function does not exist, GEOMETRY vs WKB_BLOB friction, CRS type modifiers, and exporting query results to GeoParquet. GEOMETRY became a built-in type in DuckDB 1.5. |
 | `gdal` | Use when processing geospatial raster/vector data via GDAL/OGR CLI — ogr2ogr format conversion (Shapefile/GeoPackage/GeoJSON), gdalwarp reprojection, gdal_translate, gdal_calc.py NDVI, COG, mosaicking, DEM contours, gdalinfo -json checks — or diagnosing "not recognized as a supported file format"; also covers the 3.11+ unified gdal raster / gdal vector CLI. |
 | `gdal-api` | Use when programming against GDAL/OGR in C, C++, Python, Java, or .NET — raster/vector I/O, gdal.UseExceptions, OGRSpatialReference transforms, gdal.Translate / gdal.Warp, VRT/COG, or fixing "no driver registered" and UnsatisfiedLinkError; C++ gdal-config, Maven org.gdal:gdal 3.13.0, NuGet MaxRev.Gdal.Core. |
 | `geolibre` | Use when scripting or self-hosting the GeoLibre GIS app — geolibre Python anywidget (Map/add_geojson/add_cog/save_project), geolibre-mcp stdio server for AI agents, ghcr.io/opengeos/geolibre Docker image, DuckDB-WASM SQL workspace, ?data= and ?url= deep links; also for a blank window on Linux WebKitGTK, sidecar path not allowed from GEOLIBRE_CONVERSION_ROOTS, and Jupyter relay not connected. GeoLibre 3.7.0. |
 | `geometry-api-java` | Use when working with Esri geometry types (Point, Polyline, Polygon, Envelope) in Java — GeometryEngine, com.esri.geometry:esri-geometry-api:2.2.4, WKT/WKB/GeoJSON/Esri JSON I/O, geodesic distance; also when GeometryEngine has no intersects or WKB method and you need OperatorFactoryLocal, or when 2.3.1 coordinates fail to resolve on Maven Central. Esri Geometry API for Java. |
 | `geometry-api-net` | Use when working with Esri geometry types (Point, Polyline, Polygon, Envelope) in .NET/C# — GeometryEngine, NuGet OpenGIS.Esri.Geometry.Core 1.0.9, WKT/EWKT, WKB, GeoJSON and Esri JSON I/O, System.Text.Json converters, geodesic distance; also for unclosed polygon rings, Geometry base-class casts after overlay, or the retired Esri/geometry-api-net repo. Esri Geometry API for .NET. |
 | `geonode` | Use when deploying or automating GeoNode 5.1.1 — docker compose with create-envfile.py, geonode/geonode:5.1.1 image, django4geonode logs, /api/v2/resources and /api/v2/uploads/upload (action=upload\|replace\|upsert\|create), OGC WMS/WFS links from resource.links[], geonode-project customization; also for 502 after compose up, 'GeoNode has no attribute' after upgrade, and upload 401/403 with Basic vs Bearer auth. |
-| `geopandas` | Use when doing vector spatial analysis in Python — gpd.read_file/to_file via pyogrio (GPKG, Shapefile, GeoParquet), sjoin/sjoin_nearest, overlay, clip, dissolve, to_crs vs set_crs, gdf.plot choropleth; also for CRSError from a missing PROJ data dir, area/distance computed in degrees, or GeoDataFrame geometry-column conflicts. GeoPandas 1.2.0 extends pandas DataFrames with geometry columns. |
+| `geopandas` | Use when doing vector spatial analysis in Python — gpd.read_file/to_file via pyogrio (GPKG, Shapefile, GeoParquet 2.0), sjoin/sjoin_nearest, overlay, clip, dissolve, make_grid, to_crs vs set_crs, gdf.plot choropleth; also for CRSError from a missing PROJ data dir, area/distance computed in degrees, or GeoDataFrame geometry-column conflicts. GeoPandas 1.2.0 extends pandas DataFrames with geometry columns. |
 | `geopipe-agent` | Use when building YAML GIS pipelines with GeoPipeAgent — geopipe-agent validate/run, io.read_vector to vector.buffer to io.write_vector chains, 36 built-in steps (33 analysis + 3 passthrough), qc.geometry_validity/attribute_completeness/topology, native_python\|qgis_process\|gdal_cli backends, $step.output refs; also for validate not-registered errors, silent when-condition skips, and resolve/knowledge gaps. 0.1.0, source install only (not on PyPI). |
+| `geos` | Use when working with the GEOS C/C++ geometry engine that powers PostGIS, QGIS, Shapely and GDAL — GEOSGeomFromWKT/GEOSIntersection/GEOSBuffer/GEOSMakeValid C API, geos::geom C++ API, OverlayNG robustness, GEOSPrepare and GEOSSTRtree, or debugging TopologyException and self-intersection. |
 | `geoserver` | Use when deploying GeoServer 3.0.x to publish WMS/WFS/WMTS/WCS/MVT, or configuring SLD/CSS styles, RBAC security, and GeoWebCache seeding. Covers geoserver-3.0.2-bin.zip, docker.osgeo.org/geoserver:3.0.2 on Java 17/21, /rest/about/version.json, blank GetMap from wrong native bounds, and Shapefile charset mojibake. |
 | `geoserver-cloud` | Use when deploying GeoServer Cloud 3.0.2.1 on Docker Compose or Kubernetes — gateway serving WMS/WFS/WCS/WPS/GWC microservices under /geoserver/cloud, PgConfig vs datadir backends, RabbitMQ config-bus sync, Helm chart geoservercloud 3.0.3, and diagnosing 502s via actuator/health and Consul registration. |
 | `geoserver-rest-api` | Use when automating GeoServer 3.0.2 over REST — POST /rest/workspaces, datastores, featuretypes, PUT Shapefile ZIP to file.shp, GeoTIFF to coveragestores, upload SLD as application/vnd.ogc.sld+xml, ?recurse=true deletes. curl -u admin:geoserver, single-key JSON like {"workspace":{...}}, 401 on POST but 200 on GET, GWC cache masking style changes. |
@@ -66,9 +70,12 @@ DeepSeek Harness 的 **OpenGIS 技能包插件**：把 [opengis-skills](https://
 | `kepler-gl` | Use when building React/Redux web apps or Jupyter notebooks for large-scale geospatial visual exploration with Kepler.gl 3.3.0-alpha.20 — @kepler.gl/components KeplerGl, @kepler.gl/actions addDataToMap, @kepler.gl/processors processGeojson/processCsvData, and the Python keplergl widget. Also for fixing blank maps from a missing reducer or wrong getState (react-redux 'Could not find ... in the context of Connect(...)'), Mapbox token basemap errors, and oversized addDataToMap payloads. |
 | `leaflet` | Use when adding lightweight 2D tile maps to web pages with leaflet 1.9.4 — L.map/L.tileLayer, markers, popups, GeoJSON overlays, layer control, [lat, lng] ordering, or debugging blank maps, broken default marker icons after bundling, and sizing fixed by invalidateSize(). |
 | `mapbox-gl-js` | Use when building vector web maps with mapbox-gl 3.34.2 — WebGL rendering, Style Spec layers, data-driven expressions, setTerrain raster-dem, fill-extrusion, or debugging 401 'A valid Mapbox access token is required', 'Style is not done loading', and pk./sk. token handling. Note: v2+ is proprietary under Mapbox TOS and requires a token; MapLibre GL JS is the open-source fork. |
+| `maplibre-gl-js` | Use when building open-source vector web maps with maplibre-gl 6.17.0 — Map/addSource/addLayer, Style Spec v25 layers, data-driven expressions, raster-dem terrain with setTerrain, setSky, setMissingStyleImageResolver, addProtocol for PMTiles, or debugging v6 ESM-only import errors, 'WebGL2 is required', blank maps after setStyle and style-spec expression warnings. MapLibre GL JS is the BSD-3-Clause fork of Mapbox GL JS and needs no access token. |
+| `maplibre-native` | Use when embedding GPU-accelerated vector maps natively in Android, iOS, macOS, Linux, Windows or Node.js with MapLibre Native (C++ core, BSD-2-Clause) — org.maplibre.gl:android-sdk MapView/MapLibre.getInstance/getMapAsync, CocoaPods MapLibre MLNMapView, @maplibre/maplibre-gl-native mbgl.Map render, offline caching, Bazel/CMake builds, or debugging green map screens, missing submodules and NDK build failures. |
 | `mapserver` | Use when publishing WMS/WFS/WCS/OGC API Features from a MapServer 8.6.6 .map mapfile — MAP/LAYER/CLASS/STYLE objects, STATUS/PROJECTION/EXTENT errors, WEB.METADATA wms_enable_request and wfs_enable_request, SLD binding, FastCGI plus MS_MAP_PATTERN hardening, and blank GetMap / "No query information to decode" symptoms. |
 | `mapsui` | Use when embedding interactive 2D maps in .NET desktop (WPF/WinUI/WinForms) or mobile (MAUI/Avalonia/Blazor) apps with Mapsui 5.1.0 (net8.0/net9.0) — Mapsui.Wpf/Mapsui.Maui packages, Map and Layers, OpenStreetMap.CreateTileLayer, Shapefile/GeoJSON via Mapsui.Nts, SphericalMercator.FromLonLat, or fixing a blank MapControl. |
 | `nettopologysuite` | Use when doing 2D computational geometry in .NET with NuGet NetTopologySuite 2.6.0 — GeometryFactory with SRID, Contains/Intersects predicates, Intersection/Union/Buffer overlays, STRtree, GeometryFixer, WKT/WKB/GeoJSON I/O, Shapefile via IO.Esri, and EF Core spatial queries on SQL Server/Npgsql. |
+| `opendronemap` | Use when turning drone/aerial imagery into orthophotos, DSM/DTM, point clouds or 3D Tiles with OpenDroneMap — odm CLI via docker run --project-path, --dsm --dtm --orthophoto-resolution --pc-quality --3d-tiles, WebODM 4.0.0 compose, /api/token-auth/ and /api/projects/{id}/tasks, pyodm Node('localhost',3000); also for 'odm_orthophoto.tif' outputs and out-of-memory failures. |
 | `opengis-all` | Use when navigating end-to-end GIS workflows — GDAL CLI/API (ogr2ogr, gdalwarp, gdal_calc.py), qgis_process and PyQGIS analysis, GeoServer REST publishing, and OpenLayers/CesiumJS visualization. One-stop index covering the complete open-source GIS data pipeline. |
 | `opengis-daf` | Use when building JSON-plan GIS analysis or QC pipelines with OpenGisDAF (.NET 10 / C# 14) — daf validate/run, operators buffer/clip/intersect_check/containment_check/coordinate_transform, DAG upstream bindings, GeoJSON/Shapefile/PostGIS sinks, qcMode QC reports, AssemblyLoadContext plugins; also for "zero tests ran" exit code 5, missing --recurse-submodules GDAL build errors, or PostGIS Layer already exists. Plan-driven ETL. |
 | `opengis-utils-for-java` | Use when needing common GIS utilities in Java — OguLayerUtil layer read/write, GeometryUtil 60+ ops, CrsUtil CGCS2000 (EPSG:4490, 4502-4554), Shapefile/GeoJSON/FileGDB/PostGIS/land TXT I/O, topology validation; also for GDAL UnsatisfiedLinkError on gdal_jni, missing osgeo repo on GeoTools, or resolving com.znlgis.ogu4j:ogu4j:1.0.0 that is not on Maven Central. OGU4J. |
@@ -84,6 +91,7 @@ DeepSeek Harness 的 **OpenGIS 技能包插件**：把 [opengis-skills](https://
 | `shapely` | Use when doing computational geometry in Python — shapely.intersection/union/buffer/convex_hull/simplify, STRtree queries, from_wkt/to_wkt/to_geojson, make_valid, GEOS-gated ops (coverage_clean, split); also for TopologyException on self-intersecting polygons or OOP vs function buffer quad_segs mismatch. Shapely 2.2.0 binds GEOS. |
 | `sharpmap` | Use when rendering 2D maps in legacy .NET Framework 4.7.2 WinForms or ASP.NET WebForms apps with SharpMap 1.2.0 — Map.GetMap() to PNG, ShapeFile/PostGIS providers, VectorLayer with CustomTheme, TileAsyncLayer via BruTile, ProjNet4GeoAPI transforms, or debugging blank output and GDI+ handle leaks. New projects should use Mapsui. |
 | `spatialite` | Use when adding spatial SQL to a single-file SQLite database with SpatiaLite — mod_spatialite loading, InitSpatialMetaData, AddGeometryColumn, CreateSpatialIndex/MbrWithin, ST_Transform and GEOS predicates, spatialite_tool or ogr2ogr import of Shapefile, and GPKG fallback; also for 'no such module: mod_spatialite', 'no such function: InitSpatialMetaData', and 'the SPATIALITE_SECURITY environment variable' errors. libspatialite 5.1.0. |
+| `stac-cog-titiler` | Use when building cloud-native imagery pipelines with STAC 1.1.0, Cloud Optimized GeoTIFF and TiTiler 2.4.0 — rio cogeo create/validate, pystac-client search, stac-fastapi 7.1.1 with stac-fastapi-pgstac 7.2.1, uvicorn stac_fastapi.pgstac.app:app, titiler.application /cog and /stac tilejson endpoints, MosaicJSON mosaics, or debugging HTTP 416 range errors, blank tiles from band index mismatch and 403 on private object storage. |
 | `whitebox-tools` | Use when doing advanced raster, terrain or LiDAR geoprocessing with WhiteboxTools v2.4.0 — whitebox_tools --run=Slope/FillDepressions/BreachDepressions/FlowAccumulationFullWorkflow/Watershed/ExtractStreams, lidar_* tools for LAS point clouds, or the whitebox (whitebox-python 2.3.6) WhiteboxTools wrapper in Python. Also for 'whitebox_tools: command not found', mismatched Python frontend versions, and missing DEM/flow-accumulation intermediate outputs. |
 <!-- skills:end -->
 
@@ -123,7 +131,9 @@ dsh plugin --profile <profile> remove @dsh-gis/dsh-opengis-skill
   - `postgis` / `duckdb-spatial` / `spatialite` — 空间数据库；`proj` — 坐标转换；
   - `whitebox-tools` / `grass-gis` / `pdal` — 地形水文、点云批处理；
   - `geonode` / `geoserver` / `mapserver` / `qgis-server` — 发布 OGC 服务；
-  - `openlayers` / `leaflet` / `cesiumjs` / `deck-gl` / `kepler-gl` / `geolibre` — Web 2D/3D 可视化。
+  - `openlayers` / `leaflet` / `maplibre-gl-js` / `mapbox-gl-js` / `cesiumjs` / `deck-gl` / `kepler-gl` / `geolibre` — Web 2D/3D 可视化；`maplibre-native` — Android/iOS/桌面/Node 原生渲染；
+  - `geos` — GEOS C/C++ 几何内核（PostGIS/QGIS/Shapely 的底层）；
+  - `opendronemap` — 无人机影像摄影测量（正射/DSM/点云/3D Tiles）；`stac-cog-titiler` — 影像云原生链路（STAC + COG + TiTiler）。
 - 加载结果会给出该技能的 **Base directory**；正文中的 `reference/*.md` 与 `../<其他技能>/SKILL.md` 相对链接都据此解析。因为全部技能资产随同一个包一起分发，跨技能链接不需要额外安装或配置。
 
 ## DeepSeek Harness 适配
@@ -132,8 +142,10 @@ dsh plugin --profile <profile> remove @dsh-gis/dsh-opengis-skill
 
 - **分层存放**：`assets/<skill>/SKILL.md` 是上游逐字节快照；`adaptations/common.md` 是每个技能都会读到的通用约定（技能加载与兄弟技能、reference 分段读取、`ops_bash`/`pwsh`/`run_code` 分工、Windows 改写、后台作业、`present` 交付、`ask_user_question` 确认、沙箱与审批、外部资料）；`adaptations/<skill>.md` 是该技能独有的执行建议（先读哪个 reference、命令跑在哪、探测什么版本、怎么验证、哪些操作要先确认）。
 - **加载时拼接**：provider 的 `get` 把「上游正文 + `## DeepSeek Harness 使用建议` + `## DeepSeek Harness 通用约定`」拼成一次加载结果，正文与 `reference/*.md` 的相对链接仍以技能目录为基准解析，不需要额外配置。
-- **硬约束保证「确实是 DSH」**：`<skill>.md` 必须 900–4000 字符、含 5 个固定要点、至少点名 2 个 DSH 工具；`common.md` 至少 12 条要点、覆盖 6 个以上工具。工具名从固定白名单里数，所以「读一下文件」这种泛泛叙述不算数。
+- **硬约束保证「确实是 DSH」**：`<skill>.md` 必须 900–4000 字符、含 5 个固定要点、至少点名 2 个核心工具，「先探测版本」「验证产物」两条必须各带一条反引号命令；`common.md` 至少 14 条要点、覆盖 8 个以上核心工具。工具名从固定白名单里数，所以「读一下文件」这种泛泛叙述不算数。
+- **能力按可用性分级**：`lib/adaptations.js` 把工具白名单拆成 `CORE_TOOLS`（每个受支持版本都随包提供）与 `OPTIONAL_TOOLS`（Agent Teams、桌面控制、定时任务、派生会话、MCP 资源，来自可选插件）；最低引用数只算核心工具，可选工具必须写成「会话提供时……否则退回……」的形态，避免在没有该插件的会话里给出无法执行的指引。
 - **不随上游漂移**：同步只覆盖 `assets/` 与 `upstream.json`，不会碰 `adaptations/`；上游新增技能时 `npm run validate` 会点名缺少适配文件的技能，补齐后再发布，避免悄悄发布一个没有 DSH 指南的技能。
+- **只写这个 harness 里才成立的事实**：通用约定按 DSH 的真实行为写，而不是泛泛的「用终端跑」——前台命令超时会被提升成后台作业并返回 `jobId`（不要重跑）、输出被截断时会给出 `spillPath`（用 `read` 的 `offset` 去读，而不是重跑命令）、随包 Python 有 numpy/pandas/Pillow 但没有 GDAL/Shapely/GeoPandas 绑定（`load_workspace_dependencies` 只用来取解释器与 Node 路径）、Agent Teams/桌面控制/定时任务属于可选插件（会话里没有就退回 `todo_write` + 后台作业 + `subagent`）。
 - **自检**：`npm run check:adaptations` 只校验适配层（可传入技能名）；`npm run validate` 会同时校验适配层的结构、长度、工具覆盖、相对链接，以及适配文件里用反引号提到的 `reference/*.md` 是否真的存在于该技能目录。
 - 命令统一走 DSH 的 shell 工具：Linux/macOS 用 `ops_bash`（旧文档里叫 `bash`），Windows 的 Bash 是 MSYS，Windows 原生命令用 `pwsh`；只暴露 `run_code` 的会话在 TypeScript 里调用 `tools.ops_bash` / `tools.pwsh`。
 - 文件与日志优先用 `read`（分段）/ `grep` / `glob`；大输出先落盘，长任务放后台作业并用 `job_output` 收日志。技能目录与运行时是只读资源，脚本与产物写到会话工作区。
@@ -154,7 +166,7 @@ npm run sync:check -- --from ../opengis-skills
 
 同步脚本会：逐文件复制 `gis/<skill>/`（文本统一为 LF，保证与上游 git blob 跨平台字节一致）、校验 frontmatter（name 必须为 kebab-case 且与目录同名）、清理上游已删除的技能目录、更新 `upstream.json`，并重新生成 README 中的技能数量与技能表（生成区域由 `<!-- skills:count:* -->` 与 `<!-- skills:* -->` 标记界定）。
 
-当前快照对应上游 `e47ff34`：上游已把 frontmatter 迁移到 Agent Skills 规范的六字段（`name` / `description` / `license` / `metadata{category,tags}`，另有可选的 `compatibility` 与 `allowed-tools`），并给 `reference/*.md` 补了目录、刷新了 30+ 个技能的上游版本。本包的解析器认识这层嵌套结构，校验脚本会拒绝规范外字段，因此上游若再改 frontmatter 形状，`npm run validate` 会在发布前报错而不是悄悄丢字段。`sync:check` 做双向比较：既检查已同步文件是否漂移，也检查上游新增/删除的技能是否遗漏。**`adaptations/` 不参与同步**：它属于本仓库的 DSH 适配层，同步只覆盖资产快照；上游新增技能后需要手工补一个 `adaptations/<skill>.md`，否则校验失败。
+当前快照对应上游 `55b87f4`（45 个技能、71 个文件）：在上次同步的 `e47ff34` 基础上新增 GEOS、MapLibre GL JS、MapLibre Native、OpenDroneMap、STAC/COG/TiTiler 五个技能，并刷新了 GDAL 统一 CLI 写法、GeoPandas 1.2 的 `make_grid`/`read_file_info`/GeoParquet 2.0、Shapely 2.2 的新函数、PDAL 2.10 的新 stage、GRASS 8.5 的 JSON 输出与 `grass.tools`、MapServer 的 `map2img` 更名、DuckDB 的 GEOMETRY 内置类型等 20 余处正文。上游仍使用 Agent Skills 规范的六字段（`name` / `description` / `license` / `metadata{category,tags}`，另有可选的 `compatibility` 与 `allowed-tools`）；本包的解析器认识这层嵌套结构，校验脚本会拒绝规范外字段，因此上游若再改 frontmatter 形状，`npm run validate` 会在发布前报错而不是悄悄丢字段。`sync:check` 做双向比较：既检查已同步文件是否漂移，也检查上游新增/删除的技能是否遗漏。**`adaptations/` 不参与同步**：它属于本仓库的 DSH 适配层，同步只覆盖资产快照；上游新增技能后需要手工补一个 `adaptations/<skill>.md`，否则校验失败。
 
 为避免伪造来源，`npm run sync` 要求 `--from` 指向 opengis-skills 的 **git 检出根目录**：脚本用 `git rev-parse --show-toplevel` 校验该目录就是仓库根，避免把外层仓库的 HEAD 误记成上游 commit；无法证明 commit 时同步直接失败。上游 `gis/` 下若出现没有 `SKILL.md` 的目录，同步会报错而不是静默跳过（否则上游改名会静默丢技能）；`gis/` 根目录的普通文件（上游分类索引 `gis/SKILL.md` 等）不参与同步，也不会被当作技能打包。
 
@@ -214,7 +226,7 @@ dsh-opengis-skill/
 
 - **规范注册**：`apply` 时调用 `ctx.skills.registerProvider(() => provider)`；返回的 disposer 由调用方 fiber 拥有，卸载时自动清理，因此**不需要**再套一层 `ctx.effect(...)`。
 - provider 名为 `opengis`，`source` 为 `opengis`，候选 rank 为 600（即 `BUNDLED_SKILL_RANK`，与官方内置技能包一致），`invocation` 为模型与用户均可调用。
-- `list` 只返回元数据（名称、描述、rank、source、`locator`/`path`、`resourceBase`、来自上游 frontmatter 的 `metadata`）；`get` 每次重新读盘并解析正文，因此编辑资产或适配文件后重新加载插件即可生效，无需清缓存。插件不注册工具、不注入提示段、不写会话状态。
+- `list` 只返回元数据（名称、描述、rank、source、`locator`/`path`、`resourceBase`、来自上游 frontmatter 的 `metadata`）；`get` 每次重新读盘并解析正文与 `adaptations/<skill>.md`，因此编辑资产或适配文件后重新加载插件即可生效。`adaptations/common.md` 会拼到每个技能后面且进程内不变，所以按进程缓存一次成功读取的结果（失败的读取不缓存，调用方取消也不会污染共享缓存），避免每加载一个技能重复读同一文件。插件不注册工具、不注入提示段、不写会话状态。
 - **元数据只放 candidate**：宿主契约里 `SkillCandidate` 允许 `metadata`，而 `SkillSummary`（definition）不允许，所以 `metadata.category`/`metadata.tags` 只出现在 `list` 结果上，`get` 结果保持干净；description 始终用上游原文，不因元数据改动而偏移。
 - **不设 `whenToUse`**：宿主虽然接受这个可选路由字段，但它只在网关的 user-invocable 技能列表（`/` 命令面板）里透出，模型可见的技能目录只渲染 `description`；上游 description 已经按「Use when … / Also for …」写好，再补一份 whenToUse 只会产生第二套会漂移的文案，因此本包不引入。
 - **校验分层**：`npm run validate` 把「会破坏下游契约或让内容不可发现」的问题设为错误（规范外 frontmatter 字段、license 不是 MIT、`metadata.category` 不是 `gis`、tags 数量或语法不对、description 超 500 字符/不以 `Use when` 开头/含尖括号或中文/重复、SKILL.md 超 500 行、`reference/` 有孤儿文件、适配层不达标），把「上游编辑口味」设为警告（缺「截至 YYYY-MM」时效标记、FAQ 少于 5 行、reference 超 100 行没有目录、代码围栏没语言、正文含 emoji），警告不会阻塞发布。
@@ -229,7 +241,7 @@ dsh-opengis-skill/
 - **本地验证**：`npm run validate` 检查资产、元数据、bundle 接线、完整性清单与链接；`npm test` 跑单元测试；发布前统一用 `npm run check`。
 - **同名技能冲突**：技能注册表按 rank、再按注册顺序决定同名技能的解析优先级；本包 rank 为 600。若其他 provider 也提供了同名技能，检查是否有另一份 OpenGIS 技能包或自定义技能被同时启用。
 - **不要手改 `assets/`**：它是上游快照，手工修改会导致 SHA-256 完整性校验与同步检查失败；需要改内容时先改上游，再 `npm run sync` 重新生成。
-- **适配层报错**：`npm run validate` 报 `adaptations/<skill>.md: missing` 表示上游新增了技能但还没写 DSH 指南；报 `... must start with "## DeepSeek Harness 使用建议"`、`missing the "…" bullet`、`too short`/`exceeds the …-character budget`、`cites N DeepSeek Harness tool(s)` 分别表示标题、固定要点、长度或 DSH 工具覆盖不达标；`cites reference/x.md, which is not a file` 表示引用了不存在的参考资料。按提示修好后再发布。
+- **适配层报错**：`npm run validate` 报 `adaptations/<skill>.md: missing` 表示上游新增了技能但还没写 DSH 指南；报 `... must start with "## DeepSeek Harness 使用建议"`、`missing the "…" bullet`、`too short`/`exceeds the …-character budget`、`cites N core DeepSeek Harness tool(s)` 分别表示标题、固定要点、长度或核心工具覆盖不达标；`"先探测版本" must cite a concrete command or tool in backticks` 表示该条目只有泛泛叙述、没有可执行命令；`cites reference/x.md, which is not a file` 表示引用了不存在的参考资料。按提示修好后再发布。
 - **上游 frontmatter 报错**：报 `illegal frontmatter field`、`"license" must be MIT`、`"metadata.category" must be "gis"`、`"metadata.tags" must list`、`description must start with "Use when"` 表示上游改了 frontmatter 形状。`assets/` 是只读快照，先看上游是否已迁移到新规范，再决定是升级解析器/校验规则还是重新同步。
 
 ## 与 @dsh-gis 其他插件的关系

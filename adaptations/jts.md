@@ -1,8 +1,20 @@
 ## DeepSeek Harness 使用建议
 
-- **加载与引用**：正文按 jts-core 1.20.0 编写，空间关系、集合运算、格式读写、空间索引的完整示例在 `reference/geometry-operations.md`：先 `read` 开头的小节清单再按 `offset`/`limit` 分段取，或 `grep` 搜 `STRtree`、`OverlayNGRobust` 定位，不要整读。主文件只需要「几何对象创建」「典型工作流」两节；要 GeoJSON 写出才需要 `jts-io-common`，别为跑通一个 buffer 就把两个模块都引进来。.NET 侧对应实现用 `skill` 加载 `nettopologysuite`，几何与地图结合用 `skill` 加载 `geotools`。
-- **执行环境**：命令走 `ops_bash`（Windows 下是 MSYS bash）。`jts-core` 在 Maven Central，不依赖 OSGeo 仓库，JDK 8+ 就能编译；先用 `java -version`、`mvn -v` 探测，没装 Maven 用 Maven wrapper 或官方 zip，Java 用 Temurin 安装包或 `conda install -c conda-forge openjdk`，都没有则 `docker run --rm -v "$PWD:/w" -w /w maven:3.9-eclipse-temurin-17 mvn ...`。首次解析依赖会下载几十 MB，用 `ops_bash` 的 `run_in_background` 跑、`job_output` 收日志；大几何批量运算（百万级要素 union）写在 main 里限时分批，别让一次调用超时。
-- **先探测版本**：`mvn dependency:tree -Dincludes=org.locationtech.jts` 确认解析到 1.20.0，同时 `grep -rn "vividsolutions" pom.xml src` 确认没有遗留旧包名——JTS 1.15+ 已从 `com.vividsolutions.jts` 迁到 `org.locationtech.jts`。1.20.0 的叠加引擎以 `OverlayNGRobust` 为推荐入口，低版本（1.16/1.17 早期）只有旧叠加引擎、更容易抛拓扑异常；`GeometryFixer` 也需要较新版本，老版本没有这个类。
-- **验证产物**：`mvn -q test` 之外必须跑最小 main 并断言：WKT 读入 → `isValid()` → `buffer(0)` → 坐标数比对；写 GeoJSON 后用 `GeoJsonReader` 读回、比对 geometry 数量与首点坐标（用 `System.out` 打一行摘要，别打整段坐标串）。测面积/长度这类结果时给两个已知几何写死期望值做断言，只打印「跑完了」不算验证。
-- **风险与权限**：JTS 的 SRID 只是元数据、全部运算在笛卡尔平面，把经纬度当平面算缓冲区出来的距离是「度」不是米——涉及真实距离先用 `skill` 加载 `proj` 投影再算，或用 `ask_user_question` 跟用户确认单位与坐标系。读外部几何前先 `IsValidOp` 校验，非法几何参与叠加会污染结果；覆盖已有数据、批量写库前先确认。
-- **常见失败**：`TopologyException` 换 `OverlayNGRobust.overlay()`；`isValid()` 为 false 先 `GeometryFixer.fix()`；点不进面多半是坐标写成了 `(lat, lon)`（JTS 是 `(x, y)` 即经度、纬度）；写 GeoJSON 抛 `NoClassDefFoundError: org/json/simple/JSONAware` 是手工 classpath 丢了 `json-simple` 传递依赖；`WKTReader`/`WKTWriter` 线程不安全，多线程共享会出随机错误，每线程各建一个。
+- **加载与引用**：正文按 jts-core 1.20.0 编写，空间关系、集合运算、格式读写、空间索引的完整示例在 `reference/geometry-operations.md`：先 `read` 开头的小节清单再按 `offset`/`limit` 分段取，或 `grep` 搜 `STRtree`、`OverlayNGRobust` 定位，不要整读。主文件只需要「几何对象创建」「典型工作流」两节
+  - 要 GeoJSON 写出才需要 `jts-io-common`，别为跑通一个 buffer 就把两个模块都引进来。.NET 侧对应实现用 `skill` 加载 `nettopologysuite`，几何与地图结合用 `skill` 加载 `geotools`。
+- **执行环境**：命令走 `ops_bash`（Windows 下是 MSYS bash）。`jts-core` 在 Maven Central，不依赖 OSGeo 仓库，JDK 8+ 就能编译
+  - 先用 `java -version`、`mvn -v` 探测，没装 Maven 用 Maven wrapper 或官方 zip，Java 用 Temurin 安装包或 `conda install -c conda-forge openjdk`，都没有则 `docker run --rm -v "$PWD:/w" -w /w maven:3.9-eclipse-temurin-17 mvn ...`。
+  - 首次解析依赖会下载几十 MB，用 `ops_bash` 的 `run_in_background` 跑、`job_output` 收日志
+  - 大几何批量运算（百万级要素 union）写在 main 里限时分批，别让一次调用超时。
+- **先探测版本**：`mvn dependency:tree -Dincludes=org.locationtech.jts` 确认解析到 1.20.0，同时 `grep -rn "vividsolutions" pom.xml src` 确认没有遗留旧包名——JTS 1.15+ 已从 `com.vividsolutions.jts` 迁到 `org.locationtech.jts`。
+  - 1.20.0 的叠加引擎以 `OverlayNGRobust` 为推荐入口，低版本（1.16/1.17 早期）只有旧叠加引擎、更容易抛拓扑异常
+  - `GeometryFixer` 也需要较新版本，老版本没有这个类。
+- **验证产物**：`mvn -q test` 之外必须跑最小 main 并断言：WKT 读入 → `isValid()` → `buffer(0)` → 坐标数比对
+  - 写 GeoJSON 后用 `GeoJsonReader` 读回、比对 geometry 数量与首点坐标（用 `System.out` 打一行摘要，别打整段坐标串）。测面积/长度这类结果时给两个已知几何写死期望值做断言，只打印「跑完了」不算验证。
+- **风险与权限**：JTS 的 SRID 只是元数据、全部运算在笛卡尔平面，把经纬度当平面算缓冲区出来的距离是「度」不是米——涉及真实距离先用 `skill` 加载 `proj` 投影再算，或用 `ask_user_question` 跟用户确认单位与坐标系。读外部几何前先 `IsValidOp` 校验，非法几何参与叠加会污染结果
+  - 覆盖已有数据、批量写库前先确认。
+- **常见失败**：`TopologyException` 换 `OverlayNGRobust.overlay()`
+  - `isValid()` 为 false 先 `GeometryFixer.fix()`
+  - 点不进面多半是坐标写成了 `(lat, lon)`（JTS 是 `(x, y)` 即经度、纬度）
+  - 写 GeoJSON 抛 `NoClassDefFoundError: org/json/simple/JSONAware` 是手工 classpath 丢了 `json-simple` 传递依赖
+  - `WKTReader`/`WKTWriter` 线程不安全，多线程共享会出随机错误，每线程各建一个。

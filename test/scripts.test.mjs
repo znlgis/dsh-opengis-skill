@@ -63,6 +63,31 @@ function pruneAdaptations(destination) {
 		if (existsSync(join(directory, name + ".md"))) continue;
 		writeFileSync(join(directory, name + ".md"), syntheticAdaptation(name));
 	}
+	pruneTaxonomy(destination, skills);
+}
+
+/**
+ * Reconcile lib/taxonomy.js with a fixture's assets/ directory.
+ *
+ * The shipped taxonomy describes the 45 vendored skills, so a fixture that swaps
+ * the assets for one synthetic skill would otherwise fail the taxonomy check.
+ * The two data literals are replaced; the exported helpers stay untouched.
+ *
+ * @param destination - the scratch repository root.
+ * @param skills - the fixture skill names.
+ */
+function pruneTaxonomy(destination, skills) {
+	const file = join(destination, "lib", "taxonomy.js");
+	const source = readFileSync(file, "utf8");
+	const groups = skills.map((name) => "\t" + JSON.stringify(name) + ": [\"data\"]").join(",\n");
+	const keywords = skills.map((name) => "\t" + JSON.stringify(name) + ": [\"fixture\", \"placeholder\", \"synthetic\"]").join(",\n");
+	const next = source
+		.replace(/const SKILL_GROUPS = Object\.freeze\(\{[\s\S]*?\n\}\);\n/u, "const SKILL_GROUPS = Object.freeze({\n" + groups + "\n});\n")
+		.replace(/const SKILL_KEYWORDS = Object\.freeze\(\{[\s\S]*?\n\}\);\n/u, "const SKILL_KEYWORDS = Object.freeze({\n" + keywords + "\n});\n")
+		.replace(/const GROUP_IDS_JSON = [\s\S]*?;\n/u, "")
+		.replace(/export const GROUP_IDS = Object\.freeze\(\[[\s\S]*?\]\);/u, 'export const GROUP_IDS = Object.freeze(["data"]);');
+	if (next === source) throw new Error("pruneTaxonomy could not rewrite lib/taxonomy.js");
+	writeFileSync(file, next);
 }
 
 /**
@@ -77,11 +102,21 @@ function syntheticAdaptation(name) {
 	return [
 		"## DeepSeek Harness 使用建议",
 		"",
-		"- **加载与引用**：用 \`skill\` 按名 \`" + name + "\` 加载，参考文件按 Base directory 相对读取。",
-		"- **执行环境**：命令走 \`ops_bash\`，Windows 原生命令走 \`pwsh\`。",
-		"- **先探测版本**：先跑 \`--version\` 确认工具可用，再按版本挑命令。",
-		"- **验证产物**：用 \`read\` 重新打开输出文件核对元数据，不要只看退出码。",
+		"- **加载与引用**：用 \`skill\` 按名 \`" + name + "\` 加载。",
+		"  - 参考文件按 Base directory 相对读取，先看目录再按 \`offset\` 跳读。",
+		"  - 相邻技能同样用 \`skill\` 加载，不 \`read\` 兄弟目录。",
+		"- **执行环境**：命令走 \`ops_bash\`。",
+		"  - Windows 原生命令走 \`pwsh\`。",
+		"  - 长任务用后台作业，\`job_output\` 收日志。",
+		"- **先探测版本**：先跑 \`--version\` 确认工具可用。",
+		"  - 按实际版本挑命令，低版本没有的参数不要照抄。",
+		"  - 拿不准就看 \`--help\`。",
+		"- **验证产物**：用 \`read\` 重新打开输出文件核对元数据。",
+		"  - 不要只看退出码，退出码 0 只代表命令跑过。",
+		"  - 出图用 \`read_image\` 真看一。",
 		"- **风险与权限**：覆盖、删除、安装与使用凭据前先向用户确认。",
+		"  - 用 \`ask_user_question\` 给选项，不要只在正文里写一句建议确认。",
+		"  - 凭据用环境变量，不回显到日志与回答。",
 		"",
 		"这是测试夹具生成的占位适配文件，只用于让校验脚本走完资产检查；内容长度足以通过结构阈值，且不含任何真实建议。".repeat(20)
 	].join("\n");

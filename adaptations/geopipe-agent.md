@@ -1,8 +1,23 @@
 ## DeepSeek Harness 使用建议
 
-- **加载与引用**：正文主文件给步骤目录、引用语法、`when`/`on_error` 与能力缺口闭环；细节分散在 `reference/steps-reference.md`（36 个步骤的完整参数）、`reference/pipeline-schema.md`（YAML 全字段）、`reference/workflows.md`（可直接套用的五个 YAML）、`reference/backends.md`（7 种后端可用性）、`reference/self-extension.md`（探测→检索→取得能力→验证→沉淀）、`reference/knowledge.md`。先看主文件的步骤表判断要不要展开，再用 `read` 的 `offset`/`limit` 或 `grep` 取单节，不要一次读完六个文件。
-- **执行环境**：`geopipe-agent` 是源码安装的 Python CLI（未上 PyPI），在工作区建独立 venv 后 `pip install -e ".[analysis,network]"`，不要往 QGIS/GDAL 自带解释器里装。命令走 `ops_bash`（Windows 是 MSYS bash，venv 解释器写 `/d/work/venv/Scripts/python.exe`）；`pip show geopipe-agent | Select-String Version` 这类 PowerShell 写法与 `$env:` 变量走 `pwsh`。全量 YAML 流水线与大范围栅格处理用后台作业起，`job_output` 收 JSON 报告，`job_kill` 收尾；三步以上先 `todo_write` 列出「建 venv → validate → run → 核对产物」。
-- **先探测版本**：正文按 0.1.0 编写，且明确未发布到 PyPI——`pip install geopipe-agent` 会 404，必须先 clone 再 `-e` 安装。先跑 `geopipe-agent --help` 确认装的是源码版，再 `geopipe-agent backends` 看当前环境有哪些后端可用（默认 `native_python`，`qgis_process`/`gdal_cli` 需要对应命令在 PATH），最后 `geopipe-agent list-steps --format json` 拿真实步骤 ID；版本与能力不符时以 `list-steps` 的实际输出为准。
-- **验证产物**：`geopipe-agent validate pipeline.yaml` 先过校验，再 `run pipeline.yaml`，不要跳过 validate 直接跑。跑完读 JSON 报告的 `qc_summary` 与各步骤统计（重定向到 `run.json` 再 `read` 分段看），随后重开输出文件核对：`geopipe-agent info output/result.geojson`，装了 GDAL 时用 `ogrinfo -so output/result.geojson 图层名` 确认要素数与 CRS。栅格或热力图产物用 `read_image` 真看一眼；最终成果用 `present` 交付。注意 QC 步骤是「检查即透传」，`output` 就是输入，问题在 `$step.issues`，不看 issues 会误判通过。
-- **风险与权限**：`network.geocode`、`http.request`、`curl_api` 会把数据发到外部服务，执行前用 `ask_user_question` 确认是否允许出网，并检查 `user_agent` 与凭据不要写进 YAML 提交；`io.write_vector`/`io.write_raster` 指向已有文件是覆盖，批量改写前先备份或换输出名。建 venv、装包、`pip install -e .` 前也先征得同意；网络请求与流水线日志里不要回显 API key。
-- **常见失败**：`validate` 报 `not registered` 不要猜参数，先用 `geopipe-agent resolve "<需求>"` 与 `geopipe-agent knowledge search` 查候选能力，再走直通步骤 `gdal.cli`/`qgis.algorithm`；步骤引用解析失败常见于 ID 含点号或引用了更晚定义的步骤；`when` 引用不存在的属性会按 false **静默跳过**，条件步骤没触发先查引用链；`analysis.*`/`network.*` 报 ImportError 是没装可选依赖，补 `".[analysis,network]"` 后重装；新增 `@step` 后要重新 `pip install -e .` 才会被 `pkgutil` 发现。
+- **加载与引用**：正文主文件给步骤目录、引用语法、`when`/`on_error` 与能力缺口闭环
+  - 细节分散在 `reference/steps-reference.md`（36 个步骤的完整参数）、`reference/pipeline-schema.md`（YAML 全字段）、`reference/workflows.md`（可直接套用的五个 YAML）、`reference/backends.md`（7 种后端可用性）、`reference/self-extension.md`（探测→检索→取得能力→验证→沉淀）、`reference/knowledge.md`。
+  - 先看主文件的步骤表判断要不要展开，再用 `read` 的 `offset`/`limit` 或 `grep` 取单节，不要一次读完六个文件
+- **执行环境**：`geopipe-agent` 是源码安装的 Python CLI（未上 PyPI），在工作区建独立 venv 后 `pip install -e ".[analysis,network]"`，不要往 QGIS/GDAL 自带解释器里装。命令走 `ops_bash`（Windows 是 MSYS bash，venv 解释器写 `/d/work/venv/Scripts/python.exe`）
+  - `pip show geopipe-agent | Select-String Version` 这类 PowerShell 写法与 `$env:` 变量走 `pwsh`。全量 YAML 流水线与大范围栅格处理用后台作业起，`job_output` 收 JSON 报告，`job_kill` 收尾
+  - 三步以上先 `todo_write` 列出「建 venv → validate → run → 核对产物」。
+- **先探测版本**：正文按 0.1.0 编写，且明确未发布到 PyPI——`pip install geopipe-agent` 会 404，必须先 clone 再 `-e` 安装。
+  - 先跑 `geopipe-agent --help` 确认装的是源码版，再 `geopipe-agent backends` 看当前环境有哪些后端可用（默认 `native_python`，`qgis_process`/`gdal_cli` 需要对应命令在 PATH），最后 `geopipe-agent list-steps --format json` 拿真实步骤 ID
+  - 版本与能力不符时以 `list-steps` 的实际输出为准。
+- **验证产物**：`geopipe-agent validate pipeline.yaml` 先过校验，再 `run pipeline.yaml`，不要跳过 validate 直接跑。
+  - 跑完读 JSON 报告的 `qc_summary` 与各步骤统计（重定向到 `run.json` 再 `read` 分段看），随后重开输出文件核对：`geopipe-agent info output/result.geojson`，装了 GDAL 时用 `ogrinfo -so output/result.geojson 图层名` 确认要素数与 CRS。
+  - 栅格或热力图产物用 `read_image` 真看一眼
+  - 最终成果用 `present` 交付。注意 QC 步骤是「检查即透传」，`output` 就是输入，问题在 `$step.issues`，不看 issues 会误判通过。
+- **风险与权限**：`network.geocode`、`http.request`、`curl_api` 会把数据发到外部服务，执行前用 `ask_user_question` 确认是否允许出网，并检查 `user_agent` 与凭据不要写进 YAML 提交
+  - `io.write_vector`/`io.write_raster` 指向已有文件是覆盖，批量改写前先备份或换输出名。建 venv、装包、`pip install -e .` 前也先征得同意
+  - 网络请求与流水线日志里不要回显 API key。
+- **常见失败**：`validate` 报 `not registered` 不要猜参数，先用 `geopipe-agent resolve "<需求>"` 与 `geopipe-agent knowledge search` 查候选能力，再走直通步骤 `gdal.cli`/`qgis.algorithm`
+  - 步骤引用解析失败常见于 ID 含点号或引用了更晚定义的步骤
+  - `when` 引用不存在的属性会按 false **静默跳过**，条件步骤没触发先查引用链
+  - `analysis.*`/`network.*` 报 ImportError 是没装可选依赖，补 `".[analysis,network]"` 后重装
+  - 新增 `@step` 后要重新 `pip install -e .` 才会被 `pkgutil` 发现。

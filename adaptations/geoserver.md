@@ -1,8 +1,20 @@
 ## DeepSeek Harness 使用建议
 
-- **加载与引用**：单文件技能，无 reference；正文按 GeoServer 3.0.2 编写，发布流程看「发布矢量图层（PostGIS）」与「典型工作流」，WMS/WFS/WMTS/MVT 的 URL 模板、SLD 示例、GWC seed 请求都可在正文直接取；「常见问题」按症状分条，先对表再深挖。REST 自动化用 `skill` 加载 `geoserver-rest-api`，数据源侧用 `skill` 加载 `postgis`，不要在技能之间 `read` 兄弟目录。
-- **执行环境**：`curl`、`unzip`、`java -version` 走 `ops_bash`，原生 Windows 路径与 `Expand-Archive`、`$env:` 走 `pwsh`。正文的 `sh bin/startup.sh` 在 Windows 不可用，改用 `bin` 下的 `startup.bat`（`pwsh -File .\bin\startup.bat`），或直接用镜像 `docker.osgeo.org/geoserver:3.0.2`；GeoServer 是常驻服务，必须用后台作业起，`job_output` 读到启动完成行再验证，收尾 `job_kill`，不要让 8080 端口一直挂着。发布、改样式、seed 三步以上先 `todo_write`。
-- **先探测版本**：`java -version` 必须是 17 或 21，低于 17 启动即报 `UnsupportedClassVersionError`，3.0.x 分发包无法运行；服务起来后 `curl -s -u admin:geoserver http://localhost:8080/geoserver/rest/about/version.json` 核对 GeoServer 3.0.2、GeoTools 35.2、GeoWebCache 2.0.2。升级前先备份数据目录，正文强调 3.0.2 是安全修复版，生产应优先升级。
-- **验证产物**：发布图层的判据是「200 + 非空字节 + 画面正确」：用 `curl -s -o out.png -w "%{http_code} %{size_download}"` 请求 `request=GetMap`，再用 `read_image` 看 `out.png` 是不是真画出了要素，空白图与 0 字节一样算失败；再拉 `GetCapabilities` 确认图层已注册。改了 SLD 预览不变，先在 Tile Caching 里 truncate 该图层或给 GetMap 加 `&tiled=false`；REST 建完 workspace/store 用同路径 GET 回读，删除后应得 404。
-- **风险与权限**：`admin:geoserver` 默认凭据不要写进脚本、日志或报告，用环境变量传入；删 workspace（`?recurse=true`）、truncate GWC 缓存、改 `-Xmx`、重启容器前用 `ask_user_question` 让用户拍板；seed 大范围瓦片会撑爆磁盘，先小 zoom 单图层试。
-- **常见失败**：WMS 返回空白图先查图层 native bounds 与 SRS 是否对不上；Shapefile 中文乱码改 Store 的 `charset`（UTF-8 或 GBK）；WFS-T 403 是 Data 规则没给 `w` 权限；忘记管理员密码：默认 XML 用户/组服务在数据目录 `security/usergroup/<name>/users.xml`（默认服务名 `default`），改完重启，或 Docker 部署用 `GEOSERVER_ADMIN_PASSWORD` 重置。日志里的报错用 `grep` 定位第一条真实错误，不要从头逐行读。
+- **加载与引用**：单文件技能，无 reference
+  - 正文按 GeoServer 3.0.2 编写，发布流程看「发布矢量图层（PostGIS）」与「典型工作流」，WMS/WFS/WMTS/MVT 的 URL 模板、SLD 示例、GWC seed 请求都可在正文直接取
+  - 「常见问题」按症状分条，先对表再深挖。REST 自动化用 `skill` 加载 `geoserver-rest-api`，数据源侧用 `skill` 加载 `postgis`，不要在技能之间 `read` 兄弟目录。
+- **执行环境**：`curl`、`unzip`、`java -version` 走 `ops_bash`，原生 Windows 路径与 `Expand-Archive`、`$env:` 走 `pwsh`。
+  - 正文的 `sh bin/startup.sh` 在 Windows 不可用，改用 `bin` 下的 `startup.bat`（`pwsh -File .\bin\startup.bat`），或直接用镜像 `docker.osgeo.org/geoserver:3.0.2`
+  - GeoServer 是常驻服务，必须用后台作业起，`job_output` 读到启动完成行再验证，收尾 `job_kill`，不要让 8080 端口一直挂着。发布、改样式、seed 三步以上先 `todo_write`。
+- **先探测版本**：`java -version` 必须是 17 或 21，低于 17 启动即报 `UnsupportedClassVersionError`，3.0.x 分发包无法运行
+  - 服务起来后 `curl -s -u admin:geoserver http://localhost:8080/geoserver/rest/about/version.json` 核对 GeoServer 3.0.2、GeoTools 35.2、GeoWebCache 2.0.2。升级前先备份数据目录，正文强调 3.0.2 是安全修复版，生产应优先升级。
+- **验证产物**：发布图层的判据是「200 + 非空字节 + 画面正确」：用 `curl -s -o out.png -w "%{http_code} %{size_download}"` 请求 `request=GetMap`，再用 `read_image` 看 `out.png` 是不是真画出了要素，空白图与 0 字节一样算失败
+  - 再拉 `GetCapabilities` 确认图层已注册。改了 SLD 预览不变，先在 Tile Caching 里 truncate 该图层或给 GetMap 加 `&tiled=false`
+  - REST 建完 workspace/store 用同路径 GET 回读，删除后应得 404。
+- **风险与权限**：`admin:geoserver` 默认凭据不要写进脚本、日志或报告，用环境变量传入
+  - 删 workspace（`?recurse=true`）、truncate GWC 缓存、改 `-Xmx`、重启容器前用 `ask_user_question` 让用户拍板
+  - seed 大范围瓦片会撑爆磁盘，先小 zoom 单图层试。
+- **常见失败**：WMS 返回空白图先查图层 native bounds 与 SRS 是否对不上
+  - Shapefile 中文乱码改 Store 的 `charset`（UTF-8 或 GBK）
+  - WFS-T 403 是 Data 规则没给 `w` 权限
+  - 忘记管理员密码：默认 XML 用户/组服务在数据目录 `security/usergroup/<name>/users.xml`（默认服务名 `default`），改完重启，或 Docker 部署用 `GEOSERVER_ADMIN_PASSWORD` 重置。日志里的报错用 `grep` 定位第一条真实错误，不要从头逐行读。

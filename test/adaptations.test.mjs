@@ -62,11 +62,21 @@ test("adaptationProblems rejects structural damage", () => {
 	const good = [
 		"## DeepSeek Harness 使用建议",
 		"",
-		"- **加载与引用**：先读正文，再按需 `read` `reference/x.md`。",
-		"- **执行环境**：命令走 `ops_bash`，Windows 原生命令走 `pwsh`。",
+		"- **加载与引用**：先读正文。",
+		"  - 再按需 `read` `reference/x.md`，先看目录再跳读。",
+		"  - 相邻技能用 `skill` 加载，不 read 兄弟目录。",
+		"- **执行环境**：命令走 `ops_bash`。",
+		"  - Windows 原生命令走 `pwsh`。",
+		"  - 长任务用后台作业，`job_output` 收日志。",
 		"- **先探测版本**：`gdalinfo --version` 确认实际版本。",
+		"  - 低版本没有的参数不要照抄。",
+		"  - 拿不准就看 `--help`。",
 		"- **验证产物**：`gdalinfo -json` 核对驱动与 CRS。",
+		"  - 退出码 0 只代表命令跑过。",
+		"  - 出图用 `read_image` 真看一眼。",
 		"- **风险与权限**：覆盖已有数据前用 `ask_user_question` 确认。",
+		"  - 凭据用环境变量，不回显到日志。",
+		"  - 安装与升级前先问用户。",
 		"",
 		"补充说明：这段文字把文件长度补到阈值以上，让结构检查而不是长度检查决定结果。".repeat(30)
 	].join("\n");
@@ -89,10 +99,12 @@ test("adaptationProblems rejects structural damage", () => {
 		"required bullets out of order must be rejected"
 	);
 	assert.ok(adaptationProblems("gdal", good.replaceAll("`", "")).some((problem) => problem.includes("backticks")));
-	const toolFree = good
-		.replace("`read` `reference/x.md`", "reference/x.md")
-		.replace("命令走 `ops_bash`，Windows 原生命令走 `pwsh`。", "命令在 shell 里跑。")
-		.replace("用 `ask_user_question` 确认", "先确认");
+	const tick = String.fromCharCode(96);
+	const toolFree = good.replaceAll(tick, "")
+		.replace("gdalinfo --version", "--version")
+		.replace("gdalinfo -json", "-json")
+		.replaceAll("ops_bash", "一个 shell")
+		.replaceAll("ask_user_question", "一个确认工具");
 	assert.ok(
 		adaptationProblems("gdal", toolFree).some((problem) => problem.includes("DeepSeek Harness tool")),
 		"an adaptation that names fewer than two DSH tools must be rejected"

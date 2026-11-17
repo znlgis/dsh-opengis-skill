@@ -1,8 +1,22 @@
 ## DeepSeek Harness 使用建议
 
-- **加载与引用**：单文件技能，无 reference；正文按 GeoLibre 3.7.0 编写，脚本入口读「核心接口 → Python：geolibre.Map」，无头生成读「MCP 服务器」，自托管读「路径四：Docker」与「关键环境变量」表。「常见问题」按症状分条，可当排错入口；SQL 工作区细节用 `skill` 加载 `duckdb-spatial`，矢量瓦片渲染与底图样式用 `skill` 加载 `maplibre-gl-js`（GeoLibre 的默认渲染引擎）。
-- **执行环境**：`pip install "geolibre[mcp]"` 与 `geolibre-mcp --root ...` 走 `ops_bash`；MCP 是 stdio 常驻进程，让客户端自己 spawn，不要在会话里前台长跑；`docker run` 自托管与 `npm run dev` 属长任务，用后台作业起、`job_output` 收端口与报错、`job_kill` 收尾。Windows 上 MSYS bash 会把 `/data` 当路径改写，挂载写成 `-v "$(pwd -W)/data:/data" -e GEOLIBRE_CONVERSION_ROOTS=/data`，或加 `MSYS_NO_PATHCONV=1`；原生路径与 `$env:` 交给 `pwsh`。
-- **先探测版本**：`pip show geolibre` 与 `geolibre-mcp --help`，桌面版看 Help → About；正文按 3.7.0 编写，要求 Python >= 3.11，解释器太旧会直接装不上（别误判成网络问题）。旧教程常对应 3.4/3.5，参数差异以 3.7.0 实测为准；没有 `geolibre` 时先查 `python -c "import sys; print(sys.version)"` 用的是哪个解释器，venv 与系统 Python 混用是常见坑。
-- **验证产物**：工程文件先用 `read` 或 `python -c "import json;d=json.load(open('x.geolibre.json'));print(len(d.get('layers',[])),d.get('mapView'))"` 核对图层数与视图，确认 JSON 可解析；再用浏览器打开 `export_html` 的产物，确认底图与图层真的渲染、点要素有弹窗。MCP 返回成功不等于文件可加载，导出 HTML 时还要确认图层引用的是托管 URL，本地路径在别人机器上必然空白；成品 HTML 用 `present` 交付。
-- **风险与权限**：`--root` 只给专门放地图的目录，不要给家目录；`GEOLIBRE_CONVERSION_ROOTS` 是 sidecar 的白名单，越界路径会被拒。`export_html`、`save_project` 与 MCP 的覆盖写会改盘，用 `ask_user_question` 确认再写，或先换文件名；`export_html(app_url=...)` 是信任边界，工程内容会 POST 到那个来源，只填用户认可且已列入 `GEOLIBRE_EMBED_ORIGINS` 的地址。只读门户用 `GEOLIBRE_CAPABILITIES=none` 配 `layout=viewer`。
-- **常见失败**：`live_` 系列报未连接或超时，先让用户在桌面版打开一次 Processing → Jupyter Notebook 启动中继，超时用 `live_list_layers` 回查而不是重发；自托管转换报路径不允许，是把输出写到了白名单之外；SQL 工作区里 `ST_Intersects` 报函数不存在，先核对引擎与几何列名（DuckDB/PostGIS 是 `geom`，Sedona 是 `geometry`）。
+- **加载与引用**：单文件技能，无 reference
+  - 正文按 GeoLibre 3.7.0 编写，脚本入口读「核心接口 → Python：geolibre.Map」，无头生成读「MCP 服务器」，自托管读「路径四：Docker」与「关键环境变量」表。「常见问题」按症状分条，可当排错入口
+  - SQL 工作区细节用 `skill` 加载 `duckdb-spatial`，矢量瓦片渲染与底图样式用 `skill` 加载 `maplibre-gl-js`（GeoLibre 的默认渲染引擎）。
+- **执行环境**：`pip install "geolibre[mcp]"` 与 `geolibre-mcp --root ...` 走 `ops_bash`
+  - MCP 是 stdio 常驻进程，让客户端自己 spawn，不要在会话里前台长跑
+  - `docker run` 自托管与 `npm run dev` 属长任务，用后台作业起、`job_output` 收端口与报错、`job_kill` 收尾。
+  - Windows 上 MSYS bash 会把 `/data` 当路径改写，挂载写成 `-v "$(pwd -W)/data:/data" -e GEOLIBRE_CONVERSION_ROOTS=/data`，或加 `MSYS_NO_PATHCONV=1`
+  - 原生路径与 `$env:` 交给 `pwsh`。
+- **先探测版本**：`pip show geolibre` 与 `geolibre-mcp --help`，桌面版看 Help → About
+  - 正文按 3.7.0 编写，要求 Python >= 3.11，解释器太旧会直接装不上（别误判成网络问题）。旧教程常对应 3.4/3.5，参数差异以 3.7.0 实测为准
+  - 没有 `geolibre` 时先查 `python -c "import sys; print(sys.version)"` 用的是哪个解释器，venv 与系统 Python 混用是常见坑。
+- **验证产物**：工程文件先用 `read` 或 `python -c "import json;d=json.load(open('x.geolibre.json'));print(len(d.get('layers',[])),d.get('mapView'))"` 核对图层数与视图，确认 JSON 可解析
+  - 再用浏览器打开 `export_html` 的产物，确认底图与图层真的渲染、点要素有弹窗。MCP 返回成功不等于文件可加载，导出 HTML 时还要确认图层引用的是托管 URL，本地路径在别人机器上必然空白
+  - 成品 HTML 用 `present` 交付。
+- **风险与权限**：`--root` 只给专门放地图的目录，不要给家目录
+  - `GEOLIBRE_CONVERSION_ROOTS` 是 sidecar 的白名单，越界路径会被拒。`export_html`、`save_project` 与 MCP 的覆盖写会改盘，用 `ask_user_question` 确认再写，或先换文件名
+  - `export_html(app_url=...)` 是信任边界，工程内容会 POST 到那个来源，只填用户认可且已列入 `GEOLIBRE_EMBED_ORIGINS` 的地址。只读门户用 `GEOLIBRE_CAPABILITIES=none` 配 `layout=viewer`。
+- **常见失败**：`live_` 系列报未连接或超时，先让用户在桌面版打开一次 Processing → Jupyter Notebook 启动中继，超时用 `live_list_layers` 回查而不是重发
+  - 自托管转换报路径不允许，是把输出写到了白名单之外
+  - SQL 工作区里 `ST_Intersects` 报函数不存在，先核对引擎与几何列名（DuckDB/PostGIS 是 `geom`，Sedona 是 `geometry`）。

@@ -1,8 +1,21 @@
 ## DeepSeek Harness 使用建议
 
-- **加载与引用**：单文件技能，无 reference 目录。正文代码块密集，先按「核心 API：几何工厂」「WKT / WKB / GeoJSON」「空间索引」「几何修复与简化」「EF Core」「ProjNet」「典型工作流」定位小节再 `read` 片段，或 `grep` 搜 `GeometryFixer`、`GeoJsonConverterFactory`、`HandleOrdinates` 直接跳到行号，不要整篇读。需要 Java 原版对照时用 `skill` 加载 `jts`，要 GDAL 侧读写时加载 `opengis-utils-for-net` 或 `gdal`。
-- **执行环境**：建工程、装包、构建、运行走 `ops_bash`（本机 Windows 是 MSYS bash，先 `command -v dotnet` 确认）；只有需要 `Get-Command` 或带反斜杠的 `.exe` 参数时才换 `pwsh`。探测代码放会话工作区（`dotnet new console -o work/nts-probe`），不要往 `assets/` 写；首次 `dotnet restore` 要访问 NuGet，内网先确认源可用，失败一次就报告，不要反复重试。MSYS 的 `/d/...` 传给 .NET 进程常解析失败，代码里的路径写 `D:\...`。
-- **先探测版本**：`dotnet --version` 确认 SDK 6+，`dotnet list package --include-transitive` 核对 `NetTopologySuite` 2.6.0、`NetTopologySuite.IO.GeoJSON`（或 `IO.GeoJSON4STJ`）4.0.0、`IO.Esri.Shapefile` 1.2.0、`ProjNet` 2.1.0——正文按这组版本编写。低于 2.6 没有 `NtsGeometryServices` 工厂重载与 `GeometryFixer`；`WKTReader(GeometryFactory)` 在 2.6 已标记过时，能编但告警；旧 `ProjNet4GeoAPI` 停在 1.4.1，新工程用 `ProjNet`。
-- **验证产物**：`dotnet build` 只证明编译过。写最小控制台跑正文「典型工作流」的判据：`parcel.Intersection(zone).Area` 为 12.5、`back.IsValid` 为 `true`、WKT 往返坐标数一致；输出重定向到 `run.log` 再 `read`，或写成 xunit 用例交给 `dotnet test`。Shapefile 产物用 `Shapefile.ReadAllFeatures` 回读要素数，机上有 GDAL 时再 `ogrinfo -so out.shp` 复核。要交付的 GeoJSON 用 `present` 列给用户。
-- **风险与权限**：装 SDK、加 NuGet 包、连 SQL Server/PostgreSQL 都要先问人——用 `ask_user_question` 给「只读连接/新建库/跳过」选项，生产库不直接读写。`Shapefile.WriteAllFeatures` 与 `GeoJsonWriter` 写同名文件会覆盖，先换名或备份；EF Core 的 `EnsureCreated`、迁移、批量 `UPDATE` 都改库。`GeometryFixer.Fix` 可能返回 `MultiPolygon`，别照抄正文的 `(Polygon)` 强转；`WKBWriter` 默认丢 Z/M，需要时设 `HandleOrdinates`。
-- **常见失败**：`TopologyException` 先用 `GeometryFixer.Fix`；`TypeInitializationException` 或程序集加载失败多为 IO 包与主库版本错配；`GeoJsonConverterFactory` 找不到说明装的是 Newtonsoft 版 `IO.GeoJSON`，该类只在 `IO.GeoJSON4STJ`；EF Core 类型冲突是同时引了 `Microsoft.SqlServer.Types`。
+- **加载与引用**：单文件技能，无 reference 目录。
+  - 正文代码块密集，先按「核心 API：几何工厂」「WKT / WKB / GeoJSON」「空间索引」「几何修复与简化」「EF Core」「ProjNet」「典型工作流」定位小节再 `read` 片段，或 `grep` 搜 `GeometryFixer`、`GeoJsonConverterFactory`、`HandleOrdinates` 直接跳到行号，不要整篇读。
+  - 需要 Java 原版对照时用 `skill` 加载 `jts`，要 GDAL 侧读写时加载 `opengis-utils-for-net` 或 `gdal`
+- **执行环境**：建工程、装包、构建、运行走 `ops_bash`（本机 Windows 是 MSYS bash，先 `command -v dotnet` 确认）
+  - 只有需要 `Get-Command` 或带反斜杠的 `.exe` 参数时才换 `pwsh`。探测代码放会话工作区（`dotnet new console -o work/nts-probe`），不要往 `assets/` 写
+  - 首次 `dotnet restore` 要访问 NuGet，内网先确认源可用，失败一次就报告，不要反复重试。MSYS 的 `/d/...` 传给 .NET 进程常解析失败，代码里的路径写 `D:\...`。
+- **先探测版本**：`dotnet --version` 确认 SDK 6+，`dotnet list package --include-transitive` 核对 `NetTopologySuite` 2.6.0、`NetTopologySuite.IO.GeoJSON`（或 `IO.GeoJSON4STJ`）4.0.0、`IO.Esri.Shapefile` 1.2.0、`ProjNet` 2.1.0——正文按这组版本编写。
+  - 低于 2.6 没有 `NtsGeometryServices` 工厂重载与 `GeometryFixer`
+  - `WKTReader(GeometryFactory)` 在 2.6 已标记过时，能编但告警
+  - 旧 `ProjNet4GeoAPI` 停在 1.4.1，新工程用 `ProjNet`。
+- **验证产物**：`dotnet build` 只证明编译过。写最小控制台跑正文「典型工作流」的判据：`parcel.Intersection(zone).Area` 为 12.5、`back.IsValid` 为 `true`、WKT 往返坐标数一致
+  - 输出重定向到 `run.log` 再 `read`，或写成 xunit 用例交给 `dotnet test`。Shapefile 产物用 `Shapefile.ReadAllFeatures` 回读要素数，机上有 GDAL 时再 `ogrinfo -so out.shp` 复核。要交付的 GeoJSON 用 `present` 列给用户。
+- **风险与权限**：装 SDK、加 NuGet 包、连 SQL Server/PostgreSQL 都要先问人——用 `ask_user_question` 给「只读连接/新建库/跳过」选项，生产库不直接读写。`Shapefile.WriteAllFeatures` 与 `GeoJsonWriter` 写同名文件会覆盖，先换名或备份
+  - EF Core 的 `EnsureCreated`、迁移、批量 `UPDATE` 都改库。`GeometryFixer.Fix` 可能返回 `MultiPolygon`，别照抄正文的 `(Polygon)` 强转
+  - `WKBWriter` 默认丢 Z/M，需要时设 `HandleOrdinates`。
+- **常见失败**：`TopologyException` 先用 `GeometryFixer.Fix`
+  - `TypeInitializationException` 或程序集加载失败多为 IO 包与主库版本错配
+  - `GeoJsonConverterFactory` 找不到说明装的是 Newtonsoft 版 `IO.GeoJSON`，该类只在 `IO.GeoJSON4STJ`
+  - EF Core 类型冲突是同时引了 `Microsoft.SqlServer.Types`。

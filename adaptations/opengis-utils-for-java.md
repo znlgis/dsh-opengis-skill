@@ -1,8 +1,22 @@
 ## DeepSeek Harness 使用建议
 
-- **加载与引用**：主文件给高频入口（`OguLayerUtil`、枚举、数据模型、异常层次），完整示例在 `reference/common-tasks.md`：先 `read` 该文件开头 `## Contents`，再跳到「常用任务速查」下的读取/写出/几何运算小节，或 `grep` 搜 `readLayer`、`writeLayer`、`GeometryUtil.bufferWkt` 定位，别整份读。需要 JTS 几何语义用 `skill` 加载 `jts`，GDAL 命令行核对加载 `gdal`。
-- **执行环境**：`java`、`mvn` 走 `ops_bash`（MSYS bash）；需要 `java.library.path` 这类带反斜杠的 Windows 属性时换 `pwsh`。本库未发布到 Maven Central，必须先 `git clone` 后 `mvn install -DskipTests` 装到本地仓库，再在业务工程里引 `com.znlgis.ogu4j:ogu4j:1.0.0`；`~/.m2` 在 Windows 实为 `%USERPROFILE%\.m2`。示例 Java 代码里的路径写 Windows 形式（`D:/work/parcels.shp`），MSYS 的 `/d/...` 传给 JVM 常找不到文件。长构建用后台作业加 `job_output` 收日志。
-- **先探测版本**：`java -version` 与 `mvn -version`（JDK 17+、Maven 3.8+），`mvn -v` 里显示的 JDK 才是 Maven 实际使用的，与 shell 的 `java` 不一致先改 `JAVA_HOME`。正文按 OGU4J 1.0.0、`org.gdal:gdal` 3.13.0 编写；`mvn dependency:tree -Dincludes=com.znlgis.ogu4j` 确认坐标；原生 GDAL 版本低于 3.13 时 GDAL 引擎会链不上，FileGDB 直接不可用。找不到 CI 里的 `1.0.0` 包就是没做本地 `mvn install`，不要去 Central 找。
-- **验证产物**：`mvn -q -DskipTests package` 只证明能编译。写最小 main 跑正文「典型工作流」：`OguLayerUtil.readLayer(DataFormatType.SHP, path, null, null, null, GisEngineType.AUTO)` 打印 `getWkid()` 与 `getFeatureCount()`，`CrsUtil.reproject(layer, 4528)` 后再 `writeLayer` 成 GeoJSON，回读的 WKID 必须是 4528、要素数与筛选结果一致；机上有 GDAL 时再 `ogrinfo -so out.geojson` 复核。`mvn -v` 的输出与测试日志重定向到 `run.log` 再 `read`。成品 GeoJSON 用 `present` 交付。
-- **风险与权限**：`mvn install` 写 `~/.m2` 并可能覆盖同名 SNAPSHOT；`OguLayerUtil.writeLayer` 写同名 Shapefile/GeoJSON 会整份覆盖，先换名或备份。PostGIS 连接串（`PG: host=... password=...`）的密码不要回显，连接生产库前用 `ask_user_question` 让用户选只读还是跳过。`DataStore` 与 OGR `DataSource` 要在 `finally` 释放，否则文件被占用后覆盖失败；`GisEngineType.AUTO` 在装了原生 GDAL 时优先 GDAL，要复现纯 Java 结果必须显式传 `GEOTOOLS`。
-- **常见失败**：`UnsatisfiedLinkError: no gdal_jni in java.library.path` 是原生 GDAL 缺失或版本不匹配，装 GDAL 3.13.x 或改 `GEOTOOLS`；`Could not resolve dependencies for org.geotools:*` 是 `pom.xml` 缺 `https://repo.osgeo.org/repository/release/`；`找不到 com.znlgis.ogu4j:ogu4j` 是没本地安装；Shapefile 字段名被截断用 `ShpUtil.formatFieldName()`。
+- **加载与引用**：主文件给高频入口（`OguLayerUtil`、枚举、数据模型、异常层次），完整示例在 `reference/common-tasks.md`：先 `read` 该文件开头 `## Contents`，再跳到「常用任务速查」下的读取/写出/几何运算小节，或 `grep` 搜 `readLayer`、`writeLayer`、`GeometryUtil.bufferWkt` 定位，别整份读。
+  - 需要 JTS 几何语义用 `skill` 加载 `jts`，GDAL 命令行核对加载 `gdal`
+- **执行环境**：`java`、`mvn` 走 `ops_bash`（MSYS bash）
+  - 需要 `java.library.path` 这类带反斜杠的 Windows 属性时换 `pwsh`。本库未发布到 Maven Central，必须先 `git clone` 后 `mvn install -DskipTests` 装到本地仓库，再在业务工程里引 `com.znlgis.ogu4j:ogu4j:1.0.0`
+  - `~/.m2` 在 Windows 实为 `%USERPROFILE%\.m2`。示例 Java 代码里的路径写 Windows 形式（`D:/work/parcels.shp`），MSYS 的 `/d/...` 传给 JVM 常找不到文件。长构建用后台作业加 `job_output` 收日志。
+- **先探测版本**：`java -version` 与 `mvn -version`（JDK 17+、Maven 3.8+），`mvn -v` 里显示的 JDK 才是 Maven 实际使用的，与 shell 的 `java` 不一致先改 `JAVA_HOME`。正文按 OGU4J 1.0.0、`org.gdal:gdal` 3.13.0 编写
+  - `mvn dependency:tree -Dincludes=com.znlgis.ogu4j` 确认坐标
+  - 原生 GDAL 版本低于 3.13 时 GDAL 引擎会链不上，FileGDB 直接不可用。找不到 CI 里的 `1.0.0` 包就是没做本地 `mvn install`，不要去 Central 找。
+- **验证产物**：`mvn -q -DskipTests package` 只证明能编译。
+  - 写最小 main 跑正文「典型工作流」：`OguLayerUtil.readLayer(DataFormatType.SHP, path, null, null, null, GisEngineType.AUTO)` 打印 `getWkid()` 与 `getFeatureCount()`，`CrsUtil.reproject(layer, 4528)` 后再 `writeLayer` 成 GeoJSON，回读的 WKID 必须是 4528、要素数与筛选结果一致
+  - 机上有 GDAL 时再 `ogrinfo -so out.geojson` 复核。`mvn -v` 的输出与测试日志重定向到 `run.log` 再 `read`。成品 GeoJSON 用 `present` 交付。
+- **风险与权限**：`mvn install` 写 `~/.m2` 并可能覆盖同名 SNAPSHOT
+  - `OguLayerUtil.writeLayer` 写同名 Shapefile/GeoJSON 会整份覆盖，先换名或备份。
+  - PostGIS 连接串（`PG: host=... password=...`）的密码不要回显，连接生产库前用 `ask_user_question` 让用户选只读还是跳过。
+  - `DataStore` 与 OGR `DataSource` 要在 `finally` 释放，否则文件被占用后覆盖失败
+  - `GisEngineType.AUTO` 在装了原生 GDAL 时优先 GDAL，要复现纯 Java 结果必须显式传 `GEOTOOLS`。
+- **常见失败**：`UnsatisfiedLinkError: no gdal_jni in java.library.path` 是原生 GDAL 缺失或版本不匹配，装 GDAL 3.13.x 或改 `GEOTOOLS`
+  - `Could not resolve dependencies for org.geotools:*` 是 `pom.xml` 缺 `https://repo.osgeo.org/repository/release/`
+  - `找不到 com.znlgis.ogu4j:ogu4j` 是没本地安装
+  - Shapefile 字段名被截断用 `ShpUtil.formatFieldName()`。

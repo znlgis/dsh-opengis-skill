@@ -1,8 +1,17 @@
 ## DeepSeek Harness 使用建议
 
-- **加载与引用**：单文件技能，无 reference；正文按 CesiumJS 1.147.0 编写，重点读「安装 → 打包器接入」「典型工作流」「常见问题」三节，`CESIUM_BASE_URL` 与 `Ion.defaultAccessToken` 的说明以正文为准。底图服务端配合用 `skill` 加载 `geoserver`，二维对照用 `skill` 加载 `openlayers`，需要相邻技能就重新加载，不要 `read` 兄弟技能的 SKILL.md。
-- **执行环境**：`npm install` 与 `npm run build` 走 `ops_bash`；Windows 下 `npm` 实为 `npm.cmd`，在 MSYS bash 里写 `cmd //c npm run build` 更稳，原生路径与 `$env:` 变量交给 `pwsh`。装包、构建、起静态服务都是长任务：用后台作业起服务，`job_output` 读端口与启动日志，验证完 `job_kill` 收掉，别让 5173 端口一直占着；构建输出重定向到 `build.log` 再用 `grep` 找第一条错误。
-- **先探测版本**：`npm ls cesium`（未装则 `npm view cesium version`）。1.146 起数学/几何/时间/工具类拆进 `@cesium/core`（1.147 依赖 `@cesium/core@^0.1.1`），从 `@cesium/engine` 导入这些类的代码要改导入路径，旧导出计划 1.150 移除；低于 1.146 的工程不要照搬这条迁移建议。1.147 无破坏性 API 变更，只修 `Cesium3DTileset` 在 `cacheBytes` 边界反复加载与椭球面附近环境光，升级风险低但仍要回归 3D Tiles 加载。
-- **验证产物**：`npm run build` 后 `curl.exe -I http://localhost:5173/Cesium/Workers/createVerticesFromHeightmap.js` 与 `.../Cesium/Widgets/widgets.css` 都要 200（404 或 `text/html` 说明 Workers/Assets/Widgets 没随产物发布），再拉一次页面 HTML 确认 `Cesium.js` 引用在。是否真出图只能看画面：环境支持截图时用 `read_image`，否则把 URL 与预期画面交给用户确认，不要凭构建成功报「已渲染」；给用户的构建产物与截图用 `present` 交付。
+- **加载与引用**：单文件技能，无 reference
+  - 正文按 CesiumJS 1.147.0 编写，重点读「安装 → 打包器接入」「典型工作流」「常见问题」三节，`CESIUM_BASE_URL` 与 `Ion.defaultAccessToken` 的说明以正文为准。
+  - 底图服务端配合用 `skill` 加载 `geoserver`，二维对照用 `skill` 加载 `openlayers`，需要相邻技能就重新加载，不要 `read` 兄弟技能的 SKILL.md
+- **执行环境**：`npm install` 与 `npm run build` 走 `ops_bash`
+  - Windows 下 `npm` 实为 `npm.cmd`，在 MSYS bash 里写 `cmd //c npm run build` 更稳，原生路径与 `$env:` 变量交给 `pwsh`。装包、构建、起静态服务都是长任务：用后台作业起服务，`job_output` 读端口与启动日志，验证完 `job_kill` 收掉，别让 5173 端口一直占着
+  - 构建输出重定向到 `build.log` 再用 `grep` 找第一条错误。
+- **先探测版本**：`npm ls cesium`（未装则 `npm view cesium version`）。1.146 起数学/几何/时间/工具类拆进 `@cesium/core`（1.147 依赖 `@cesium/core@^0.1.1`），从 `@cesium/engine` 导入这些类的代码要改导入路径，旧导出计划 1.150 移除
+  - 低于 1.146 的工程不要照搬这条迁移建议。1.147 无破坏性 API 变更，只修 `Cesium3DTileset` 在 `cacheBytes` 边界反复加载与椭球面附近环境光，升级风险低但仍要回归 3D Tiles 加载。
+- **验证产物**：`npm run build` 后 `curl.exe -I http://localhost:5173/Cesium/Workers/createVerticesFromHeightmap.js` 与 `.../Cesium/Widgets/widgets.css` 都要 200（404 或 `text/html` 说明 Workers/Assets/Widgets 没随产物发布），再拉一次页面 HTML 确认 `Cesium.js` 引用在。
+  - 是否真出图只能看画面：环境支持截图时用 `read_image`，否则把 URL 与预期画面交给用户确认，不要凭构建成功报「已渲染」
+  - 给用户的构建产物与截图用 `present` 交付。
 - **风险与权限**：`Cesium.Ion.defaultAccessToken` 只从环境变量注入（Vite 用 `import.meta.env.VITE_CESIUM_ION_TOKEN`），不进源码、不回显到日志与报告。装依赖、起 dev server、改端口、把工程发到公网前用 `ask_user_question` 让用户拍板。国内底图整体错位是 GCJ-02 偏移，要显式纠偏而不是调坐标参数。
-- **常见失败**：黑屏先看控制台是否有 `Unable to determine Cesium base URL automatically, try defining a global variable called CESIUM_BASE_URL.`，在入口最早处设 `window.CESIUM_BASE_URL = '/Cesium'`，并把该目录整体随产物发布；报 `WebGL 2 context is required` 是无头或远程桌面环境没有 WebGL2，换环境而不是改代码；`tileset.destroy()` 与 `viewer.destroy()` 不调用会持续占显存。
+- **常见失败**：黑屏先看控制台是否有 `Unable to determine Cesium base URL automatically, try defining a global variable called CESIUM_BASE_URL.`，在入口最早处设 `window.CESIUM_BASE_URL = '/Cesium'`，并把该目录整体随产物发布
+  - 报 `WebGL 2 context is required` 是无头或远程桌面环境没有 WebGL2，换环境而不是改代码
+  - `tileset.destroy()` 与 `viewer.destroy()` 不调用会持续占显存。

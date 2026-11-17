@@ -13,7 +13,7 @@ const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const assetsRoot = join(root, "assets");
 
 /** Register the provider against a minimal host context and return it. */
-function loadProvider() {
+function loadProvider(config) {
 	let created;
 	const host = {
 		skills: {
@@ -23,7 +23,7 @@ function loadProvider() {
 			}
 		}
 	};
-	apply(host);
+	apply(host, config);
 	assert.ok(created !== undefined, "apply must register a skill provider");
 	return created({ signal: new AbortController().signal, invalidate() {} });
 }
@@ -67,7 +67,26 @@ test("catalog lists every bundled GIS skill with unique kebab-case names", async
 		assert.ok(Array.isArray(candidate.metadata.tags), candidate.name + " must carry a tag array");
 		assert.ok(candidate.metadata.tags.length >= 5, candidate.name + " must carry at least 5 upstream tags");
 		assert.equal(candidate.metadata.tags.every((tag) => /^[a-z0-9][a-z0-9.-]*$/u.test(tag)), true, candidate.name + " tags must stay lowercase identifiers");
+		// The local taxonomy rides on the candidate too, so a host can route a
+		// Chinese request without translating the English description first.
+		assert.ok(Array.isArray(candidate.metadata.groups) && candidate.metadata.groups.length > 0, candidate.name + " must carry at least one group");
+		assert.ok(Array.isArray(candidate.metadata.keywords) && candidate.metadata.keywords.length >= 3, candidate.name + " must carry at least three keywords");
+		assert.equal(candidate.metadata.keywords.every((keyword) => typeof keyword === "string" && keyword.length > 0), true, candidate.name + " keywords must be non-empty strings");
 	}
+});
+
+test("the plugin config trims the catalog without editing the package", () => {
+	const dataOnly = loadProvider({ groups: ["desktop"] });
+	return dataOnly.list({ signal: new AbortController().signal }).then((candidates) => {
+		assert.ok(candidates.length > 0 && candidates.length < 45, "a group filter must shrink the catalog");
+		for (const candidate of candidates) {
+			assert.ok(candidate.metadata.groups.includes("desktop"), candidate.name + " must belong to the selected group");
+		}
+	});
+});
+
+test("an unknown group in the plugin config fails loudly", () => {
+	assert.throws(() => loadProvider({ groups: ["nope"] }), /unknown group "nope"/u);
 });
 
 test("loading returns the current body without frontmatter", async () => {

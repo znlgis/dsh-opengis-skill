@@ -5,6 +5,24 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.0] - 2026-11-17
+
+### Added
+
+- **中文触发词与技能分组**（`lib/taxonomy.js`）：45 个技能各带 3–6 条请求原话（`keywordScores` 用它们打分）与至少一个分组（`desktop`/`server`/`data`/`geometry`/`web`/`dotnet`/`java`/`pipeline`/`meta`）。两套数据随 candidate 的 `metadata.keywords` 与 `metadata.groups` 交给宿主；上游描述是英文，这一层消掉了中文提问先翻译一步才命中的不确定性。
+- **可裁剪的技能目录**：`apply(ctx, config)` 支持 `groups`（并集）、`skills`（白名单，优先于 groups）、`exclude`（最后应用）。未知组名、未知技能名与「筛完为空」都直接抛错，避免拼错过滤词后静默返回一半目录。
+- **适配层子条目契约**：每个 `<skill>.md` 至少 4 个固定要点要拆成两格缩进的子条目、全文至少 8 条（`MIN_NESTED_LABELS` / `MIN_NESTED_BULLETS`）。45 个适配文件按语义边界重排，最长单条从 675 字符降到 300 上下。
+- **`scripts/check-citations.mjs`**（`npm run check:citations`，进 CI）：校验适配层 `加载 `x`` 与 `skill({ name: "x" })` 指向的技能仍然存在，以及引用的三段式版本号能在该技能正文或参考资料里找到；两段式版本号降级为警告（迁移注记会合法地提到旧版本）。
+- **分类法校验**（`checkTaxonomy`）：技能目录、分组、触发词三者必须一一对应，未知键、空分组、少于 3 条触发词都会让 `npm run validate` 失败。
+- **路由回归测试**（`test/routing.test.mjs` + `test/fixtures/routing-cases.json`）：每个技能两条中文请求，用关键词命中（×3）与描述拉丁词命中（×1）打分，要求 90% 以上命中第一名、全部命中前三名。
+- **`common.md` 兜底约束**：`commonProblems` 现在要求点名可选插件工具的行同时给出「没有该插件时怎么办」的退路。
+
+### Changed
+
+- **`common.md` 去重压缩**：删掉与宿主工具说明重复的「命令执行分工」与「输出截断/spillPath」两段，把剩下的平台差异并进「长任务与后台作业」「Windows 改写」；新增「随包运行时没有 GIS 绑定」与「索引型入口先定位阶段」两条，总长 3223 字符（仍在 2600–9000 窗口内）。
+- **README**：新增「配置（裁剪目录）」一节与四个新特性条目；包体积数字按实测更新为解包 1.24 MB / tarball 457 kB / 140 个文件。
+- **测试夹具**：`scripts.test.mjs` 在复制仓库后会同步裁剪 `lib/taxonomy.js` 与 `GROUP_IDS`，使单技能夹具不会因为分类法覆盖全量目录而失败。
+
 ## [0.4.0] - 2026-11-11
 
 ### Added

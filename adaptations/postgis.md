@@ -1,8 +1,22 @@
 ## DeepSeek Harness 使用建议
 
-- **加载与引用**：单文件技能，无 reference 目录；验收判据集中在「典型工作流」的输出与验收、「性能优化」、「常见问题」三节，按标题定位再读。导入/导出链路的细节用 `skill` 加载 `gdal`，发布图层加载 `geoserver`，不要在本文件重写。SQL 大段结果先落文件再 `grep` 关键行，别把整份 `EXPLAIN` 贴进上下文。
-- **执行环境**：`psql`、`shp2pgsql`、`raster2pgsql`、`pgsql2shp`、`ogr2ogr` 都在 `ops_bash` 里跑。导入用管道 `shp2pgsql -s 4326 -I -W UTF-8 data/poi.shp public.poi | psql -d gisdb -v ON_ERROR_STOP=1`；元命令不能进交互式会话，单条传：`psql -d gisdb -c "\d+ poi"`。Windows 上没有这些 CLI 时改走 `ogr2ogr -f PostgreSQL "PG:host=localhost dbname=gisdb user=postgres"`，或用容器 `docker exec -i pg psql -U postgres`。整库导入、`VACUUM FULL`、大表 `CREATE INDEX` 放后台作业，用 `job_output` 收日志。
-- **先探测版本**：连上去先 `psql -c "SELECT version(), PostGIS_Full_Version();"` 一次拿到 PostgreSQL、PostGIS、GEOS、PROJ。正文按 PostGIS 3.7.0 编写（2026-10-30 发布），要求 PostgreSQL 14–19、GEOS ≥ 3.10、PROJ ≥ 6.1；3.6 及更早还能配 PostgreSQL 12+，升级前先确认 GEOS/PROJ 满足新下限。连不上先探服务端 `psql -h 127.0.0.1 -U postgres -c "SELECT 1"`，connection refused 是服务没起而非 SQL 写错；本机无实例时用 `docker run --name pg -e POSTGRES_PASSWORD=pg -p 5432:5432 -d postgis/postgis:17-3.7`。扩展缺失查 `SELECT * FROM pg_available_extensions WHERE name LIKE 'postgis%';`。
-- **验证产物**：导入后别只看 `INSERT 0 n`，回读 `SELECT count(*), ST_SRID(geom), ST_IsValid(geom) FROM t GROUP BY 2,3;`；空间连接按正文判据核对已匹配数与 `unmatched` 差值、`ST_SRID(geom)` 为 4326；性能结论必须附 `EXPLAIN (ANALYZE, BUFFERS)` 输出并指出计划里出现 `poi_geom_idx` 上的 Index/Bitmap Index Scan，没计划就直说未验证。导出后再 `ogrinfo -al -so out/poi_with_district.geojson` 核对要素数与字段；出图后用 `read_image` 看一眼，成品用 `present` 交付。
-- **风险与权限**：`DROP TABLE/SCHEMA`、整表 `UPDATE ... SET geom=`、`UpdateGeometrySRID`、`VACUUM FULL`、重启 PostgreSQL 都不可逆，执行前必须备份并向用户确认。连生产库、建库、删表、批量改写用 `ask_user_question` 给「只读查询/新建临时库/取消」选项；密码走 `PGPASSWORD`/`.pgpass`/环境变量，不写进命令行与回复。大表 `UPDATE`/`CREATE INDEX` 放可控事务避免长时间锁表，`CREATE INDEX CONCURRENTLY` 不能包在事务块里。`shp2pgsql -d` 会先删表，`-a` 是追加，别拿错。
-- **常见失败**：`Operation on mixed SRID geometries` 先用 `ST_SRID(geom)` 核对两侧、`ST_Transform` 统一；`Boundary geometry is invalid` 用 `ST_IsValidReason` 定位、`ST_MakeValid` 修复；`transform: Failed to transform` 查 `spatial_ref_sys` 与 PROJ 数据（`projinfo EPSG:<code>` 能否解析）；`type "geometry" does not exist` 是扩展没装或 `search_path` 不对；查询慢先确认 GiST 索引存在且几何没被函数包裹导致索引失效。
+- **加载与引用**：单文件技能，无 reference 目录
+  - 验收判据集中在「典型工作流」的输出与验收、「性能优化」、「常见问题」三节，按标题定位再读。导入/导出链路的细节用 `skill` 加载 `gdal`，发布图层加载 `geoserver`，不要在本文件重写。SQL 大段结果先落文件再 `grep` 关键行，别把整份 `EXPLAIN` 贴进上下文。
+- **执行环境**：`psql`、`shp2pgsql`、`raster2pgsql`、`pgsql2shp`、`ogr2ogr` 都在 `ops_bash` 里跑。导入用管道 `shp2pgsql -s 4326 -I -W UTF-8 data/poi.shp public.poi | psql -d gisdb -v ON_ERROR_STOP=1`
+  - 元命令不能进交互式会话，单条传：`psql -d gisdb -c "\d+ poi"`。
+  - Windows 上没有这些 CLI 时改走 `ogr2ogr -f PostgreSQL "PG:host=localhost dbname=gisdb user=postgres"`，或用容器 `docker exec -i pg psql -U postgres`。
+  - 整库导入、`VACUUM FULL`、大表 `CREATE INDEX` 放后台作业，用 `job_output` 收日志
+- **先探测版本**：连上去先 `psql -c "SELECT version(), PostGIS_Full_Version();"` 一次拿到 PostgreSQL、PostGIS、GEOS、PROJ。正文按 PostGIS 3.7.0 编写（2026-10-30 发布），要求 PostgreSQL 14–19、GEOS ≥ 3.10、PROJ ≥ 6.1
+  - 3.6 及更早还能配 PostgreSQL 12+，升级前先确认 GEOS/PROJ 满足新下限。连不上先探服务端 `psql -h 127.0.0.1 -U postgres -c "SELECT 1"`，connection refused 是服务没起而非 SQL 写错
+  - 本机无实例时用 `docker run --name pg -e POSTGRES_PASSWORD=pg -p 5432:5432 -d postgis/postgis:17-3.7`。扩展缺失查 `SELECT * FROM pg_available_extensions WHERE name LIKE 'postgis%';`。
+- **验证产物**：导入后别只看 `INSERT 0 n`，回读 `SELECT count(*), ST_SRID(geom), ST_IsValid(geom) FROM t GROUP BY 2,3;`
+  - 空间连接按正文判据核对已匹配数与 `unmatched` 差值、`ST_SRID(geom)` 为 4326
+  - 性能结论必须附 `EXPLAIN (ANALYZE, BUFFERS)` 输出并指出计划里出现 `poi_geom_idx` 上的 Index/Bitmap Index Scan，没计划就直说未验证。导出后再 `ogrinfo -al -so out/poi_with_district.geojson` 核对要素数与字段
+  - 出图后用 `read_image` 看一眼，成品用 `present` 交付。
+- **风险与权限**：`DROP TABLE/SCHEMA`、整表 `UPDATE ... SET geom=`、`UpdateGeometrySRID`、`VACUUM FULL`、重启 PostgreSQL 都不可逆，执行前必须备份并向用户确认。连生产库、建库、删表、批量改写用 `ask_user_question` 给「只读查询/新建临时库/取消」选项
+  - 密码走 `PGPASSWORD`/`.pgpass`/环境变量，不写进命令行与回复。大表 `UPDATE`/`CREATE INDEX` 放可控事务避免长时间锁表，`CREATE INDEX CONCURRENTLY` 不能包在事务块里。`shp2pgsql -d` 会先删表，`-a` 是追加，别拿错。
+- **常见失败**：`Operation on mixed SRID geometries` 先用 `ST_SRID(geom)` 核对两侧、`ST_Transform` 统一
+  - `Boundary geometry is invalid` 用 `ST_IsValidReason` 定位、`ST_MakeValid` 修复
+  - `transform: Failed to transform` 查 `spatial_ref_sys` 与 PROJ 数据（`projinfo EPSG:<code>` 能否解析）
+  - `type "geometry" does not exist` 是扩展没装或 `search_path` 不对
+  - 查询慢先确认 GiST 索引存在且几何没被函数包裹导致索引失效。

@@ -16,12 +16,16 @@ export interface OpenGisResourceBase {
 	path: string;
 }
 
-/** Upstream routing metadata carried on a candidate (never on a definition). */
+/** Routing metadata carried on a candidate (never on a definition). */
 export interface OpenGisSkillMetadata {
 	/** Upstream category directory, always "gis" for this pack. */
 	category?: string;
 	/** Parsed upstream metadata.tags. */
 	tags: string[];
+	/** Coarse groups from lib/taxonomy.js, used by the plugin config filter. */
+	groups: string[];
+	/** Local trigger phrases from lib/taxonomy.js, in request wording. */
+	keywords: string[];
 }
 
 /** One skill summary returned by the provider catalog. */
@@ -57,12 +61,12 @@ export interface OpenGisSkillProvider {
 	get(candidate: OpenGisSkillCandidate, options?: { signal?: AbortSignal }): Promise<OpenGisSkillDefinition>;
 }
 
-/** Cordis context surface used by this plugin. */
-export interface OpenGisSkillHost {
-	skills: {
-		registerProvider(create: (control: { signal: AbortSignal; invalidate(): void }) => OpenGisSkillProvider): unknown;
-	};
+/** Plugin config: trim the bundled catalog without editing the package. */
+export interface OpenGisSkillConfig {
+	/** Groups to union; ignored when "skills" is non-empty. */
+	groups?: string[];
+	/** Explicit skill allow list; wins over "groups". */
+	skills?: string[];
+	/** Skill deny list, applied last. */
+	exclude?: string[];
 }
-
-/** Register the bundled OpenGIS skill provider on "ctx.skills". */
-export declare function apply(ctx: OpenGisSkillHost): void;

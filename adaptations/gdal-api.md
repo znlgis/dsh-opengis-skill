@@ -1,8 +1,26 @@
 ## DeepSeek Harness 使用建议
 
-- **加载与引用**：正文给跨语言类对照表、坐标变换四语言示例、典型工作流与排错表；栅格读取/创建/Translate/Warp/VRT/COG 的完整 API 看 `reference/raster-api.md`，矢量读写、空间过滤、几何操作与 GeoPackage 看 `reference/vector-api.md`。先用 `grep` 搜类名或函数名（如 `GDALRasterBand`、`VectorTranslate`）定位小节，再 `read` 带 `offset`/`limit` 取用，不要整份读。纯命令行替代方案用 `skill` 加载 `gdal`，Python 矢量分析加载 `geopandas`。
-- **执行环境**：Python 绑定走 `ops_bash`（Windows 是 MSYS bash，解释器要选装了绑定的那个，conda-forge 的 `conda install -c conda-forge gdal` 最省心）；C++ 用 `gdal-config --cflags --libs` 或 CMake `find_package(GDAL REQUIRED)`，编译与链接都在 `ops_bash`；Java 的 `gdalalljni` 定位、`dotnet add package MaxRev.Gdal.Core`、`mvn -v` 这类需要 Windows 原生工具链的走 `pwsh`。正文的 `apt-get install libgdal-dev` 在 Windows 不可用，改用 conda 或 OSGeo4W。大栅格分块处理与批量转换用后台作业，`job_output` 收日志、`job_kill` 收尾。
-- **先探测版本**：正文按 GDAL 3.13.3 编写，Java 绑定在 Maven Central 是 3.13.0，NuGet 上 `MaxRev.Gdal.Core` 对应 `3.13.3.611` 且运行时包主版本必须一致。先跑 `python -c "from osgeo import gdal; print(gdal.VersionInfo())"`（返回 `3130300` 这类数字）与 `ogrinfo --version` 确认版本；低版本缺新驱动与部分 SWIG 方法（如 `gdal.VectorTranslate` 的某些参数），C# 侧运行时包与核心包不匹配会直接报本地库加载失败。
-- **验证产物**：写完必须重开核对——栅格 `python -c "from osgeo import gdal; ds=gdal.Open('out.tif'); print(ds.GetDriver().ShortName, ds.RasterCount, ds.GetSpatialRef().GetAuthorityCode(None))"` 查驱动、波段数、EPSG；矢量 `ogrinfo -so -al out.gpkg` 查图层名、要素数、字段与 CRS。Python 脚本开头一律 `gdal.UseExceptions()`，否则错误被静默吞掉、写出半成品也算「成功」。资源释放后才算落盘：Python `ds = None`、C++ `GDALClose()`、Java `.delete()`、C# `.Dispose()`；重投影结果用 `read_image` 看一眼是否全黑或错位，成品用 `present` 交付。
-- **风险与权限**：以更新模式（`gdal.GA_Update`、`GDALOpen(..., GA_Update)`）打开会直接改原文件，`gdal.Translate`/`gdal.Warp` 输出到已有路径是覆盖；动手前先备份或换输出名，并用 `ask_user_question` 给「换名输出 / 覆盖 / 先备份」选项。装 `libgdal-dev`、加 NuGet/Maven 依赖、写系统目录前先征得同意；连接云存储或数据库的凭据不要写进代码与日志。
-- **常见失败**：「驱动未注册」先 `GDALAllRegister()`/`gdal.AllRegister()`，矢量还要 `OGRRegisterAll()`；经纬度顺序颠倒不是数据错——GDAL 3+ 默认纬度在前，需要经度在前时用 `SetAxisMappingStrategy(OAMS_TRADITIONAL_GIS_ORDER)`；多线程崩溃是全局状态非线程安全，每线程用独立 `GDALDataset`；大栅格内存溢出改用 `RasterIO` 窗口分块；报错说不清时 Python 看 `gdal.GetLastErrorMsg()`、C++ 看 `CPLGetLastErrorMsg()`；Java `UnsatisfiedLinkError` 查 `java.library.path` 里的 `gdalalljni`。
+- **加载与引用**：正文给跨语言类对照表、坐标变换四语言示例、典型工作流与排错表
+  - 栅格读取/创建/Translate/Warp/VRT/COG 的完整 API 看 `reference/raster-api.md`，矢量读写、空间过滤、几何操作与 GeoPackage 看 `reference/vector-api.md`。
+  - 先用 `grep` 搜类名或函数名（如 `GDALRasterBand`、`VectorTranslate`）定位小节，再 `read` 带 `offset`/`limit` 取用，不要整份读。
+  - 纯命令行替代方案用 `skill` 加载 `gdal`，Python 矢量分析加载 `geopandas`
+- **执行环境**：Python 绑定走 `ops_bash`（Windows 是 MSYS bash，解释器要选装了绑定的那个，conda-forge 的 `conda install -c conda-forge gdal` 最省心）
+  - C++ 用 `gdal-config --cflags --libs` 或 CMake `find_package(GDAL REQUIRED)`，编译与链接都在 `ops_bash`
+  - Java 的 `gdalalljni` 定位、`dotnet add package MaxRev.Gdal.Core`、`mvn -v` 这类需要 Windows 原生工具链的走 `pwsh`。
+  - 正文的 `apt-get install libgdal-dev` 在 Windows 不可用，改用 conda 或 OSGeo4W。
+  - 大栅格分块处理与批量转换用后台作业，`job_output` 收日志、`job_kill` 收尾
+- **先探测版本**：正文按 GDAL 3.13.3 编写，Java 绑定在 Maven Central 是 3.13.0，NuGet 上 `MaxRev.Gdal.Core` 对应 `3.13.3.611` 且运行时包主版本必须一致。
+  - 先跑 `python -c "from osgeo import gdal; print(gdal.VersionInfo())"`（返回 `3130300` 这类数字）与 `ogrinfo --version` 确认版本
+  - 低版本缺新驱动与部分 SWIG 方法（如 `gdal.VectorTranslate` 的某些参数），C# 侧运行时包与核心包不匹配会直接报本地库加载失败。
+- **验证产物**：写完必须重开核对——栅格 `python -c "from osgeo import gdal; ds=gdal.Open('out.tif'); print(ds.GetDriver().ShortName, ds.RasterCount, ds.GetSpatialRef().GetAuthorityCode(None))"` 查驱动、波段数、EPSG
+  - 矢量 `ogrinfo -so -al out.gpkg` 查图层名、要素数、字段与 CRS。Python 脚本开头一律 `gdal.UseExceptions()`，否则错误被静默吞掉、写出半成品也算「成功」。资源释放后才算落盘：Python `ds = None`、C++ `GDALClose()`、Java `.delete()`、C# `.Dispose()`
+  - 重投影结果用 `read_image` 看一眼是否全黑或错位，成品用 `present` 交付。
+- **风险与权限**：以更新模式（`gdal.GA_Update`、`GDALOpen(..., GA_Update)`）打开会直接改原文件，`gdal.Translate`/`gdal.Warp` 输出到已有路径是覆盖
+  - 动手前先备份或换输出名，并用 `ask_user_question` 给「换名输出 / 覆盖 / 先备份」选项。装 `libgdal-dev`、加 NuGet/Maven 依赖、写系统目录前先征得同意
+  - 连接云存储或数据库的凭据不要写进代码与日志。
+- **常见失败**：「驱动未注册」先 `GDALAllRegister()`/`gdal.AllRegister()`，矢量还要 `OGRRegisterAll()`
+  - 经纬度顺序颠倒不是数据错——GDAL 3+ 默认纬度在前，需要经度在前时用 `SetAxisMappingStrategy(OAMS_TRADITIONAL_GIS_ORDER)`
+  - 多线程崩溃是全局状态非线程安全，每线程用独立 `GDALDataset`
+  - 大栅格内存溢出改用 `RasterIO` 窗口分块
+  - 报错说不清时 Python 看 `gdal.GetLastErrorMsg()`、C++ 看 `CPLGetLastErrorMsg()`
+  - Java `UnsatisfiedLinkError` 查 `java.library.path` 里的 `gdalalljni`。

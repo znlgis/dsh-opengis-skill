@@ -1,8 +1,19 @@
 ## DeepSeek Harness 使用建议
 
-- **加载与引用**：正文按 NuGet `OpenGIS.Esri.Geometry.Core` 1.0.9 编写，主文件给高频用法；几何类型体系与 `GeometryEngine`/`Operator` 两种风格的完整说明在 `reference/geometry-types.md`，先 `read` 其开头的 `## Contents`，再用 `offset`/`limit` 分段或 `grep` 搜 `GeometryType`、`Operator`，不要整文件硬读。需要几何修复时用 `skill` 加载 `nettopologysuite`，本库没有 `MakeValid`。
-- **执行环境**：`dotnet --version`、`dotnet add package`、`dotnet build/test/run` 走 `pwsh`（Windows 下 `dotnet` 是 .cmd，首次 restore 需访问 NuGet）。`dotnet new console -o demo` 建最小工程放会话工作区，`bin/`、`obj/` 不要提交；示例工程与生成数据都别写进 assets/。
-- **先探测版本**：`dotnet list package` 与 `dotnet --version` 一起看。正文按 1.0.9（2026-09-21）编写，库目标 `netstandard2.0`，可被 net6/net8/net9/net10 引用；包名与命名空间已从 Esri 版改为 `OpenGIS.Esri.Geometry.*`，原 `Esri/geometry-api-net` 仓库已 404，网上旧代码的 `Esri.ArcGIS.Geometry` 与本库无关。还原报 `NU1101` 说明源或版本不可用，报告依赖不可下载，不要自己编版本号。
-- **验证产物**：最小控制台断言四件事——`GeometryEngine.GeometryFromWkt` 到 `GeometryToWkt` 往返、`Contains(polygon, point)` 为 true、`Buffer(new Point(10,20), 5.0).GetEnvelope()` 得 (XMin=5, YMin=15, XMax=15, YMax=25)、`GeometryToGeoJson` 再 `GeometryFromGeoJson` 后 `Equals` 为 true。`dotnet build` 成功只证明能编译；面积不要断言严格等于 25，正文实测约 `24.999998`（默认容差 1e-10）。跑完把控制台输出重定向到文件，用 `grep` 核对每个断言行。
-- **风险与权限**：`dotnet restore` 需访问 NuGet，离线先确认本地缓存；改全局 `NuGet.config`、装 SDK、写系统目录前用 `ask_user_question` 征求同意，输出里不要回显私有源凭据。`Polygon.AddRing` 必须首尾闭合，否则面积与包含判断异常；集合运算返回 `Geometry` 基类，转型后再取具体成员；`Simplify` 的 tolerance 必须为正，传 `0.0` 会抛 `ArgumentException: Tolerance must be positive`。
-- **常见失败**：`GeodesicDistance` 结果离谱是拿投影坐标（米制）去算，该 API 基于 WGS84，输入必须是经纬度；无法 new 算子实例是因为所有 Operator 都走 `Instance` 懒单例；改 `GetRing()` 或 `GetPath()` 返回值报错是只读视图，需要复制后再改。
+- **加载与引用**：正文按 NuGet `OpenGIS.Esri.Geometry.Core` 1.0.9 编写，主文件给高频用法
+  - 几何类型体系与 `GeometryEngine`/`Operator` 两种风格的完整说明在 `reference/geometry-types.md`，先 `read` 其开头的 `## Contents`，再用 `offset`/`limit` 分段或 `grep` 搜 `GeometryType`、`Operator`，不要整文件硬读。
+  - 需要几何修复时用 `skill` 加载 `nettopologysuite`，本库没有 `MakeValid`
+- **执行环境**：`dotnet --version`、`dotnet add package`、`dotnet build/test/run` 走 `pwsh`（Windows 下 `dotnet` 是 .cmd，首次 restore 需访问 NuGet）。`dotnet new console -o demo` 建最小工程放会话工作区，`bin/`、`obj/` 不要提交
+  - 示例工程与生成数据都别写进 assets/。
+- **先探测版本**：`dotnet list package` 与 `dotnet --version` 一起看。正文按 1.0.9（2026-09-21）编写，库目标 `netstandard2.0`，可被 net6/net8/net9/net10 引用
+  - 包名与命名空间已从 Esri 版改为 `OpenGIS.Esri.Geometry.*`，原 `Esri/geometry-api-net` 仓库已 404，网上旧代码的 `Esri.ArcGIS.Geometry` 与本库无关。还原报 `NU1101` 说明源或版本不可用，报告依赖不可下载，不要自己编版本号。
+- **验证产物**：最小控制台断言四件事——`GeometryEngine.GeometryFromWkt` 到 `GeometryToWkt` 往返、`Contains(polygon, point)` 为 true、`Buffer(new Point(10,20), 5.0).GetEnvelope()` 得 (XMin=5, YMin=15, XMax=15, YMax=25)、`GeometryToGeoJson` 再 `GeometryFromGeoJson` 后 `Equals` 为 true。
+  - `dotnet build` 成功只证明能编译
+  - 面积不要断言严格等于 25，正文实测约 `24.999998`（默认容差 1e-10）。跑完把控制台输出重定向到文件，用 `grep` 核对每个断言行。
+- **风险与权限**：`dotnet restore` 需访问 NuGet，离线先确认本地缓存
+  - 改全局 `NuGet.config`、装 SDK、写系统目录前用 `ask_user_question` 征求同意，输出里不要回显私有源凭据。`Polygon.AddRing` 必须首尾闭合，否则面积与包含判断异常
+  - 集合运算返回 `Geometry` 基类，转型后再取具体成员
+  - `Simplify` 的 tolerance 必须为正，传 `0.0` 会抛 `ArgumentException: Tolerance must be positive`。
+- **常见失败**：`GeodesicDistance` 结果离谱是拿投影坐标（米制）去算，该 API 基于 WGS84，输入必须是经纬度
+  - 无法 new 算子实例是因为所有 Operator 都走 `Instance` 懒单例
+  - 改 `GetRing()` 或 `GetPath()` 返回值报错是只读视图，需要复制后再改。

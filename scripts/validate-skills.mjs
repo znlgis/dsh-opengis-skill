@@ -60,6 +60,7 @@ import {
 } from "../lib/adaptations.js";
 import { findMarkdownLinkProblems, relativeMarkdownLinks } from "../lib/markdown-links.js";
 import { LEGAL_FIELDS, parseSkillFile } from "../lib/skill-file.js";
+import { taxonomyProblems } from "../lib/taxonomy.js";
 
 /** Repository root: this script lives in <root>/scripts/. */
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
@@ -139,7 +140,7 @@ const REQUIRED_FILES = [
 const REQUIRED_EXPORTS = [".", "./skill-file", "./cordis.patch.yml", "./locale/*.json", "./icon", "./package.json"];
 
 /** Lifecycle scripts that must stay wired. */
-const REQUIRED_SCRIPTS = ["validate", "test", "sync", "sync:check", "check", "prepublishOnly"];
+const REQUIRED_SCRIPTS = ["validate", "test", "sync", "sync:check", "check:citations", "check", "prepublishOnly"];
 
 /** Locales that must carry both meta fields. */
 const REQUIRED_LOCALES = ["en", "zh"];
@@ -854,6 +855,17 @@ function checkAdaptations(skills) {
 /**
  * Warn when the changelog lacks an entry for the current package version.
  */
+/**
+ * Check that the local taxonomy (groups and trigger keywords) covers exactly the
+ * catalog, so the config filter and the routing metadata cannot drift behind a
+ * sync that adds or removes a skill.
+ *
+ * @param skills - the valid asset skill entries.
+ */
+function checkTaxonomy(skills) {
+	for (const problem of taxonomyProblems(skills.map((skill) => skill.name))) error(problem);
+}
+
 function checkChangelog() {
 	const file = join(root, "CHANGELOG.md");
 	if (!existsSync(file)) {
@@ -915,6 +927,7 @@ checkAssetQuality(validatedSkills);
 checkLinks();
 checkManifest(validatedSkills);
 checkAdaptations(validatedSkills);
+checkTaxonomy(validatedSkills);
 checkChangelog();
 scanAssets();
 printSummary(validatedSkills);

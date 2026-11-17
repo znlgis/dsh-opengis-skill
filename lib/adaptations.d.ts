@@ -19,6 +19,15 @@ export declare const REQUIRED_LABELS: readonly string[];
 /** Labels whose bullet must carry a concrete command or tool in backticks. */
 export declare const CONCRETE_LABELS: readonly string[];
 
+/** How many required labels must decompose into indented sub-bullets. */
+export declare const MIN_NESTED_LABELS: number;
+
+/** Minimum indented sub-bullets across one per-skill guidance file. */
+export declare const MIN_NESTED_BULLETS: number;
+
+/** List the indented sub-bullets of one label section, or of the whole file. */
+export declare function nestedBullets(text: string, label?: string): string[];
+
 /** DeepSeek Harness tools every supported build exposes; the citation minimums count these. */
 export declare const CORE_TOOLS: readonly string[];
 

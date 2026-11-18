@@ -6,7 +6,7 @@
 > `reference/*.md` files are loaded on demand. Vendored bodies stay byte-identical to
 > upstream, and a separate `adaptations/` layer is appended when a skill is loaded —
 > one DeepSeek Harness guidance block per skill plus a shared one (tool mapping,
-> Windows rewrites, background jobs, spill files, artifact verification, consent gates,
+> Windows rewrites, background jobs, artifact verification, consent gates,
 > sandbox semantics, optional-plugin fallbacks). A per-skill block must name at least
 > two *core* harness tools and give a concrete probe command and a concrete verification
 > command, so the layer stays about *this* harness instead of repeating tool-agnostic
@@ -16,7 +16,8 @@
 > frontmatter) is exposed on the provider candidate. Zero runtime dependencies: every
 > asset ships inside the npm package.
 >
-> Compatibility: DeepSeek Harness `>=0.2.0-rc.2 <0.3.0-0`; Node.js `>=22` for development
+> Compatibility: DeepSeek Harness `>=0.2.0-rc.2 <0.3.0-0` (verified end to end against
+> `0.2.2-rc.5`, the current desktop/nightly build); Node.js `>=22` for development
 > only. MIT licensed.
 
 DeepSeek Harness 的 **OpenGIS 技能包插件**：把 [opengis-skills](https://github.com/znlgis/opengis-skills) 中 `gis/` 分类的 GIS 技能打包成可安装、可启停的 DSH bundle。会话技能目录只列出名称与描述，技能正文与参考资料按需加载。
@@ -25,21 +26,21 @@ DeepSeek Harness 的 **OpenGIS 技能包插件**：把 [opengis-skills](https://
 
 - **覆盖 GIS 全链路（45 个技能）**：GDAL、GDAL API、QGIS（qgis_process / PyQGIS / QGIS Server）、GeoServer（含 REST API 与 Cloud）、GeoNode、MapServer、PostGIS、DuckDB Spatial、SpatiaLite、PROJ、ProjNet4GeoAPI、PDAL、GRASS GIS、WhiteboxTools、JTS、NetTopologySuite、Esri Geometry API（Java/.NET）、GEOS、Shapely、GeoPandas、GeoPipeAgent、OpenGisDAF、CesiumJS、OpenLayers、Leaflet、BruTile、Mapbox GL JS、MapLibre GL JS、MapLibre Native、deck.gl、Kepler.gl、GeoLibre、OpenDroneMap、STAC/COG/TiTiler、SharpMap、Mapsui、GeoTools、OpenGIS Utils（Java/.NET），以及 `opengis-all` 全流程索引。
 - **按需加载**：注册的是 skill provider（`ctx.skills.registerProvider`），发现阶段只读 frontmatter；正文每次加载时读取，参考资料（`reference/*.md`）通过技能目录（resource base）相对解析。
-- **零运行时依赖**：只用 Node 内置模块，不 import DSH 内部包；全部资产与适配文件随 npm 包分发，整个包解包后约 1.24 MB（其中技能资产 910 kB、适配层 149 kB），npm tarball 约 457 kB（140 个文件）。
+- **零运行时依赖**：只用 Node 内置模块，不 import DSH 内部包；全部资产与适配文件随 npm 包分发，整个包解包后约 1.24 MB（其中技能资产 910 kB、适配层约 150 kB），npm tarball 约 470 kB（141 个文件）。
 - **可同步上游**：`npm run sync` 从 opengis-skills 检出复制资产，记录上游 commit 与每个文件的 SHA-256 到 `upstream.json`，并重新生成本文下方技能清单。
 - **可启停**：单包同时是 bundle 与插件（`dsh.bundle.patch` 插入自身行），在 Plugins 里启用/停用即可。
-- **分层适配 DSH**：`assets/` 保持上游逐字节快照（SHA-256 清单可校验），DSH 专属建议单独放在 `adaptations/`：`common.md` 是通用执行约定（技能加载与索引型入口、引用分段读取、长任务与后台作业、Windows 改写、随包运行时没有 GIS 绑定、先探测再执行、多步编排、可选插件能力、GUI 验证边界、产物验证、`present` 交付、`ask_user_question` 确认、沙箱与审批、外部资料、失败定位）。其中命令执行分工与输出截断说明直接指向宿主工具描述，不在这里重述。`<skill>.md` 是该技能的执行建议（按需读哪个 reference、命令跑在哪、先探测什么版本、产物怎么验证、哪些操作要先确认）。加载技能时由 provider 把两段拼到正文之后，技能正文保持原样。
-- **适配层强制体现 harness**：每个 `<skill>.md` 必须 900–4000 字符、含 5 个固定要点（加载与引用 / 执行环境 / 先探测版本 / 验证产物 / 风险与权限），至少点名 **2 个核心工具**（`ops_bash`、`read`、`job_output`、`read_image`、`ask_user_question` 等随包工具），并且「先探测版本」「验证产物」两条必须各带一条反引号命令——只写「检查一下」会被 `npm run validate` 拒绝。工具白名单按可用性拆成 `CORE_TOOLS`（每个受支持版本都有）与 `OPTIONAL_TOOLS`（Agent Teams、桌面控制、定时任务等可选插件），可选工具不计入最低数，且必须与「没有就退回」的备份方案一起写。
+- **分层适配 DSH**：`assets/` 保持上游逐字节快照（SHA-256 清单可校验），DSH 专属建议单独放在 `adaptations/`：`common.md` 是通用执行约定（技能加载与索引型入口、引用分段读取、长任务与后台作业、Windows 改写、随包运行时没有 GIS 绑定、先探测再执行、多步编排、可选插件能力、GUI 验证边界、产物验证、`present` 交付、`ask_user_question` 确认、沙箱与审批、外部资料、失败定位）。命令执行分工与输出截断说明直接指向宿主工具描述，不在这里重述。`<skill>.md` 是该技能的执行建议（按需读哪个 reference、命令跑在哪、先探测什么版本、产物怎么验证、哪些操作要先确认）。加载技能时由 provider 把两段拼到正文之后，技能正文保持原样。
+- **适配层强制体现 harness**：每个 `<skill>.md` 必须 900–4000 字符、含 5 个固定要点（加载与引用 / 执行环境 / 先探测版本 / 验证产物 / 风险与权限），至少点名 **2 个核心工具**（`skill`、`bash`、`read`、`job_output`、`read_image`、`ask_user_question` 等官方分发自带工具），并且「先探测版本」「验证产物」两条必须各带一条反引号命令——只写「检查一下」会被 `npm run validate` 拒绝。工具白名单按来源拆成 `CORE_TOOLS`（DSH 官方分发自带的工具）与 `OPTIONAL_TOOLS`（第三方插件如 `ops_bash`、PTC 专属的 `run_code`、桌面控制、定时任务、MCP 资源等），可选工具不计入最低数，且必须与「没有就退回」的备份方案一起写。
 - **可用性靠结构而不是篇幅**：每个 `<skill>.md` 至少 4 个要点必须拆成两格缩进的子条目、全文至少 8 条子条目（`MIN_NESTED_LABELS` / `MIN_NESTED_BULLETS`）。一条 600 字的段落在模型眼里是一整块，拆成「先查什么 → 怎么判 → 失败怎么办」的子条目才用得起来。`common.md` 里点名的每个可选工具，所在行必须同时给出没有该插件时的退路。
-- **上游路由元数据透出**：provider 解析上游六字段 frontmatter 里的 `metadata.category` 与 `metadata.tags`，作为 candidate 的 `metadata` 交给宿主（`SkillCandidate.metadata`），描述与本地化仍走 `description`；解析器同时保留字段顺序，供校验确认没有引入规范外字段。
-- **中文触发词**：上游描述是英文 `Use when …`，中文提问要靠模型自己翻译一步才能命中。本地 `lib/taxonomy.js` 为每个技能维护 3–6 个请求原话（「格式转换」「洼地填充」「移动端地图」），作为 `metadata.keywords` 交给宿主；`metadata.groups` 同时给出技能分组。这两个键是本包添加的，宿主不认也只是忽略。
+- **上游路由元数据透出**：provider 解析上游六字段 frontmatter 里的 `metadata.category` 与 `metadata.tags`，连同本地 groups 与 keywords 一起作为 candidate 的 `metadata` 交给宿主（`SkillCandidate.metadata`）。DSH 的注册表把它当作 provider 私有数据原样保存、不渲染进模型目录，因此模型可见的路由依据始终只有名称与 `description`；解析器同时保留字段顺序，供校验确认没有引入规范外字段。
+- **中文触发词与分组**：本地 `lib/taxonomy.js` 为每个技能维护 3–6 个请求原话（「格式转换」「洼地填充」「移动端地图」），作为 `metadata.keywords` 交给宿主；`metadata.groups` 同时给出技能分组并驱动插件配置过滤（`groups`）。这两个键是本包添加的，宿主不认也只是忽略；模型侧命中的仍是英文 `description`，因此路由测试衡量的是「描述 + 触发词」这层判据是否还分得开，而不是网关真的按关键词排序。
 - **可裁剪目录**：插件配置支持 `groups` / `skills` / `exclude` 三个字段，写错的组名或技能名会直接报错而不是静默返回错误的目录。浏览器地图会话可以只留 `web`，不必为 GeoServer 与 PostGIS 的描述付上下文。
 - **交叉引用校验**：`npm run check:citations` 检查适配层指向的技能确实存在（`加载 `x`` 与 `skill({ name: "x" })` 两种写法）、以及引用的三段式版本号能在该技能正文里找到——上游重同步后最容易出现的就是这两类悬空引用。
 
 ## 兼容性
 
-- **DeepSeek Harness**：`>=0.2.0-rc.2 <0.3.0-0`（`package.json` 的 `engines.dsh`）。本包通过 Host 提供的 `ctx.skills` 注册 provider，遵循 `@deepseek-ai/dsh-skill` 的 registry API 与 candidate/definition 契约；该契约在 0.2.0-rc.2 与 0.2.1-rc.2 之间字节一致，`dsh.bundle.patch`、locale 与图标元数据在 0.2.0-rc.2 已经可用。
-- **candidate `metadata`**：宿主契约里的 `SkillCandidate` 与 `SkillDefinition` 都声明了可选的 `metadata`，本包只放在 candidate 上；即使某个更早的宿主版本没有声明该字段，按候选对象读取 provider 的实现也只是忽略多余键，不会影响名称、描述与正文加载。
+- **DeepSeek Harness**：`>=0.2.0-rc.2 <0.3.0-0`（`package.json` 的 `engines.dsh`）。本包通过 Host 提供的 `ctx.skills` 注册 provider，遵循 `@deepseek-ai/dsh-skill` 的 registry API 与 candidate/definition 契约。**已实测版本：`0.2.2-rc.5`**（当前桌面/nightly 发行版）——其中 `registerProvider((control) => provider)`、`list()` 的完整数组简写、`get()` 的 `SkillDefinition | undefined` 返回值、`BUNDLED_SKILL_RANK = 600` 与本包实现一致；更早的 `0.2.x` 版本只在 `engines.dsh` 声明的范围内被假定兼容，未逐一验证。
+- **candidate `metadata`**：宿主契约里的 `SkillCandidate` 与 `SkillDefinition` 都声明了可选的 `metadata`。本包**有意只放在 candidate 上**：registry 的 `toSummary()` 会把它从 `list()` 摘要中丢弃，`skill` 工具渲染也只读名称、描述与正文，所以 definition 不携带它是设计选择而非契约限制；多带一个字段只会增加无谓的载荷。
 - **Node.js**：`>=22`（`engines.node`）。仅开发脚本与测试需要，插件本身运行在 DSH 内。
 - **运行时依赖**：无。`dependencies` 为空，只使用 Node 内置模块，不 import DSH 内部包。
 
@@ -104,7 +105,7 @@ DeepSeek Harness 的 **OpenGIS 技能包插件**：把 [opengis-skills](https://
 ### 方式一：Plugins 界面（本地目录，适合开发）
 
 1. 在 DSH 中打开 **Plugins / 插件** 页面，选择安装 bundle（本地目录方式）。
-2. 目标填**包根目录**的绝对路径，也就是包含 `package.json` 的目录，例如本仓库 `D:\self\code\dsh-opengis-skill`。
+2. 目标填**包根目录**的绝对路径，也就是包含 `package.json` 的目录，例如 `D:\path\to\dsh-opengis-skill`。
 3. 安装后在列表中找到 **OpenGIS 技能包** 并启用；记录写入当前所选 profile 的插件配置。
 4. 本地目录方式直接引用源码目录，改动会随重载生效，适合开发与试用；正式使用建议走下面的 npm 方式，便于升级与版本校验。
 
@@ -142,7 +143,9 @@ dsh plugin --profile <profile> remove @dsh-gis/dsh-opengis-skill
 
 ## 配置（裁剪目录）
 
-技能目录里的 45 条描述每轮对话都在上下文里，约 4226 token。插件配置可以把它裁剪成当前项目真正需要的子集，配置在 bundle 的插件行上：
+技能目录里的 45 条描述每轮对话都在上下文里，约 4226 token。插件配置可以把它裁剪成当前项目真正需要的子集，配置在 bundle 的插件行上。
+
+这三个字段由 provider 自己在 `apply()` 里校验（不导出 schemastery `Config`，也不会向宿主注册配置 schema）：宿主因此只负责传递配置，写错的组名、技能名或「筛完为空」会在插件激活时报错并出现在启动诊断里，而不是静默返回半份目录：
 
 ```yaml
 - insert:
@@ -177,11 +180,11 @@ dsh plugin --profile <profile> remove @dsh-gis/dsh-opengis-skill
 - **分层存放**：`assets/<skill>/SKILL.md` 是上游逐字节快照；`adaptations/common.md` 是每个技能都会读到的通用约定（技能加载与兄弟技能、reference 分段读取、`ops_bash`/`pwsh`/`run_code` 分工、Windows 改写、后台作业、`present` 交付、`ask_user_question` 确认、沙箱与审批、外部资料）；`adaptations/<skill>.md` 是该技能独有的执行建议（先读哪个 reference、命令跑在哪、探测什么版本、怎么验证、哪些操作要先确认）。
 - **加载时拼接**：provider 的 `get` 把「上游正文 + `## DeepSeek Harness 使用建议` + `## DeepSeek Harness 通用约定`」拼成一次加载结果，正文与 `reference/*.md` 的相对链接仍以技能目录为基准解析，不需要额外配置。
 - **硬约束保证「确实是 DSH」**：`<skill>.md` 必须 900–4000 字符、含 5 个固定要点、至少点名 2 个核心工具，「先探测版本」「验证产物」两条必须各带一条反引号命令，并且至少 4 个要点要拆成子条目、全文至少 8 条子条目；`common.md` 至少 14 条要点、覆盖 8 个以上核心工具。工具名从固定白名单里数，所以「读一下文件」这种泛泛叙述不算数。
-- **能力按可用性分级**：`lib/adaptations.js` 把工具白名单拆成 `CORE_TOOLS`（每个受支持版本都随包提供）与 `OPTIONAL_TOOLS`（Agent Teams、桌面控制、定时任务、派生会话、MCP 资源，来自可选插件）；最低引用数只算核心工具，可选工具必须写成「会话提供时……否则退回……」的形态，避免在没有该插件的会话里给出无法执行的指引。
+- **能力按来源分级**：`lib/adaptations.js` 把工具白名单拆成 `CORE_TOOLS`（DSH 官方分发自带的工具：`bash`/`pwsh`、文件与检索、`job_*`、`subagent` 家族、`skill`、`present`、`todo_write`、Web、`working_directory`、`ask_user_question`、目标与 Agent Teams 等，已对照 `0.2.2-rc.5` 的 `dsh-base` 与 web 预设核实）与 `OPTIONAL_TOOLS`（第三方插件与可选预设：`ops_bash`、`run_code`、`load_workspace_dependencies`、桌面控制、定时任务、MCP 资源、配置管理等）；最低引用数只算核心工具，可选工具必须写成「会话提供时……否则退回……」的形态，避免在没有该插件的会话里给出无法执行的指引。
 - **不随上游漂移**：同步只覆盖 `assets/` 与 `upstream.json`，不会碰 `adaptations/`；上游新增技能时 `npm run validate` 会点名缺少适配文件的技能，补齐后再发布，避免悄悄发布一个没有 DSH 指南的技能。
-- **只写这个 harness 里才成立的事实**：通用约定按 DSH 的真实行为写，而不是泛泛的「用终端跑」——前台命令超时会被提升成后台作业并返回 `jobId`（不要重跑）、输出被截断时会给出 `spillPath`（用 `read` 的 `offset` 去读，而不是重跑命令）、随包 Python 有 numpy/pandas/Pillow 但没有 GDAL/Shapely/GeoPandas 绑定（`load_workspace_dependencies` 只用来取解释器与 Node 路径）、Agent Teams/桌面控制/定时任务属于可选插件（会话里没有就退回 `todo_write` + 后台作业 + `subagent`）。
+- **只写这个 harness 里才成立的事实**：通用约定按 DSH 的真实行为写，而不是泛泛的「用终端跑」——前台命令超时会被提升成后台作业并返回 `jobId`（不要重跑）、随包 Python 有 numpy/pandas/Pillow 但没有 GDAL/Shapely/GeoPandas 绑定（`load_workspace_dependencies` 只用来取解释器与 Node 路径）、Agent Teams/桌面控制/定时任务属于可选插件（会话里没有就退回 `todo_write` + 后台作业 + `subagent`）、`ops_bash` 与官方 `bash` 是同一个 shell 消费者的两种暴露方式（没有插件时把正文里的 `ops_bash` 换成 `bash`）。
 - **自检**：`npm run check:adaptations` 只校验适配层（可传入技能名）；`npm run validate` 会同时校验适配层的结构、长度、工具覆盖、子条目、相对链接，以及适配文件里用反引号提到的 `reference/*.md` 是否真的存在于该技能目录。`npm run check:citations` 再往前一步：校验适配层指向的技能确实存在、引用的三段式版本号能在该技能正文里找到。
-- 命令统一走 DSH 的 shell 工具：Linux/macOS 用 `ops_bash`（旧文档里叫 `bash`），Windows 的 Bash 是 MSYS，Windows 原生命令用 `pwsh`；只暴露 `run_code` 的会话在 TypeScript 里调用 `tools.ops_bash` / `tools.pwsh`。
+- 命令统一走 DSH 的 shell 工具：官方发行版叫 `bash`，装了 Ops 类插件的部署把它包装成 `ops_bash`，两者参数与行为一致（本包正文默认写 `ops_bash`，没有该插件时换成 `bash`）；Windows 的 Bash 是 MSYS，Windows 原生命令用 `pwsh`；只暴露 `run_code` 的 PTC 会话在 TypeScript 程序里按生成的 SDK 调用同名工具。
 - 文件与日志优先用 `read`（分段）/ `grep` / `glob`；大输出先落盘，长任务放后台作业并用 `job_output` 收日志。技能目录与运行时是只读资源，脚本与产物写到会话工作区。
 - 技能正文标注的是上游核验时点的版本（例如 GeoServer 3.0.2、GeoTools 35.2、QGIS 4.2.3 / LTR 3.44.15、GDAL 3.13.3）。实际环境版本不同时，先探测版本，再按“低版本降级”或“高版本新增 API”说明差异，不要照搬不存在的命令。
 - 技能只是领域知识与执行约定，不会替你安装工具、绕过沙箱或读取凭据；安装依赖、启动服务、覆盖数据、执行破坏性 SQL 前先向用户确认，命令与回答中不要回显密码与 token。
@@ -200,7 +203,7 @@ npm run sync:check -- --from ../opengis-skills
 
 同步脚本会：逐文件复制 `gis/<skill>/`（文本统一为 LF，保证与上游 git blob 跨平台字节一致）、校验 frontmatter（name 必须为 kebab-case 且与目录同名）、清理上游已删除的技能目录、更新 `upstream.json`，并重新生成 README 中的技能数量与技能表（生成区域由 `<!-- skills:count:* -->` 与 `<!-- skills:* -->` 标记界定）。
 
-当前快照对应上游 `55b87f4`（45 个技能、71 个文件）：在上次同步的 `e47ff34` 基础上新增 GEOS、MapLibre GL JS、MapLibre Native、OpenDroneMap、STAC/COG/TiTiler 五个技能，并刷新了 GDAL 统一 CLI 写法、GeoPandas 1.2 的 `make_grid`/`read_file_info`/GeoParquet 2.0、Shapely 2.2 的新函数、PDAL 2.10 的新 stage、GRASS 8.5 的 JSON 输出与 `grass.tools`、MapServer 的 `map2img` 更名、DuckDB 的 GEOMETRY 内置类型等 20 余处正文。上游仍使用 Agent Skills 规范的六字段（`name` / `description` / `license` / `metadata{category,tags}`，另有可选的 `compatibility` 与 `allowed-tools`）；本包的解析器认识这层嵌套结构，校验脚本会拒绝规范外字段，因此上游若再改 frontmatter 形状，`npm run validate` 会在发布前报错而不是悄悄丢字段。`sync:check` 做双向比较：既检查已同步文件是否漂移，也检查上游新增/删除的技能是否遗漏。**`adaptations/` 不参与同步**：它属于本仓库的 DSH 适配层，同步只覆盖资产快照；上游新增技能后需要手工补一个 `adaptations/<skill>.md`，否则校验失败。
+当前快照对应上游提交 `upstream.json` 中记录的 `commit`（本版为 `55b87f4`，45 个技能、71 个文件，摘要以清单为准）：在上次同步的 `e47ff34` 基础上新增 GEOS、MapLibre GL JS、MapLibre Native、OpenDroneMap、STAC/COG/TiTiler 五个技能，并刷新了 GDAL 统一 CLI 写法、GeoPandas 1.2 的 `make_grid`/`read_file_info`/GeoParquet 2.0、Shapely 2.2 的新函数、PDAL 2.10 的新 stage、GRASS 8.5 的 JSON 输出与 `grass.tools`、MapServer 的 `map2img` 更名、DuckDB 的 GEOMETRY 内置类型等 20 余处正文。上游仍使用 Agent Skills 规范的六字段（`name` / `description` / `license` / `metadata{category,tags}`，另有可选的 `compatibility` 与 `allowed-tools`）；本包的解析器认识这层嵌套结构，校验脚本会拒绝规范外字段，因此上游若再改 frontmatter 形状，`npm run validate` 会在发布前报错而不是悄悄丢字段。`sync:check` 做双向比较：既检查已同步文件是否漂移，也检查上游新增/删除的技能是否遗漏。**`adaptations/` 不参与同步**：它属于本仓库的 DSH 适配层，同步只覆盖资产快照；上游新增技能后需要手工补一个 `adaptations/<skill>.md`，否则校验失败。
 
 为避免伪造来源，`npm run sync` 要求 `--from` 指向 opengis-skills 的 **git 检出根目录**：脚本用 `git rev-parse --show-toplevel` 校验该目录就是仓库根，避免把外层仓库的 HEAD 误记成上游 commit；无法证明 commit 时同步直接失败。上游 `gis/` 下若出现没有 `SKILL.md` 的目录，同步会报错而不是静默跳过（否则上游改名会静默丢技能）；`gis/` 根目录的普通文件（上游分类索引 `gis/SKILL.md` 等）不参与同步，也不会被当作技能打包。
 
@@ -211,11 +214,11 @@ npm run sync:check -- --from ../opengis-skills
 需要 Node.js 22+。
 
 ```bash
-npm run check       # validate + check:citations + test，发布前必跑（也是 prepublishOnly）
+npm run check       # validate + check:adaptations + check:citations + test，发布前必跑（也是 prepublishOnly）
 npm run check:adaptations [skill...]  # 只校验 DSH 适配层，可指定技能
 npm run check:citations               # 校验适配层指向的技能与版本号是否仍然存在
 npm run validate    # 资产、六字段 frontmatter、内容质量、bundle 接线、完整性清单、分类法与 DSH 适配层
-npm test            # Node 内置测试运行器
+npm test            # Node 内置测试运行器（本机装了 DSH 时额外跑真实注册表集成用例）
 npm pack --dry-run  # 查看实际发布内容
 ```
 
@@ -241,6 +244,7 @@ dsh-opengis-skill/
 │   └── <skill>.md                # 该技能专属的执行建议
 ├── locale/{en,zh}.json           # Plugins 里显示的标题与描述
 ├── icon.svg                      # bundle 图标
+├── docs/DETAIL.md                # Plugins 详情页正文（locale 的 meta.detail 指向它）
 ├── scripts/
 │   ├── sync-opengis-skills.mjs   # 上游同步（assets/、upstream.json、README 生成区域）
 │   ├── check-adaptations.mjs     # 单独的 DSH 适配层校验（可指定技能）
@@ -253,7 +257,9 @@ dsh-opengis-skill/
 │   ├── catalog.test.mjs          # 目录构建与 README 生成区域
 │   ├── markdown-links.test.mjs   # 相对链接解析与断链检测
 │   ├── taxonomy.test.mjs         # 分类法覆盖与插件配置过滤
-│   ├── routing.test.mjs          # 中文请求的路由命中率回归
+│   ├── routing.test.mjs          # 中文请求的路由判据命中率回归
+│   ├── dsh-contract.test.mjs     # 按 DSH 注册表的校验规则回归 candidate/definition
+│   ├── dsh-integration.test.mjs  # 在本机已安装的 DSH 注册表里跑一遍 provider（找不到安装则跳过）
 │   └── scripts.test.mjs          # 同步/校验脚本（临时目录夹具）
 ├── .editorconfig                 # 编辑器默认值
 ├── CHANGELOG.md                  # 版本变更记录
@@ -265,11 +271,12 @@ dsh-opengis-skill/
 
 - **规范注册**：`apply` 时调用 `ctx.skills.registerProvider(() => provider)`；返回的 disposer 由调用方 fiber 拥有，卸载时自动清理，因此**不需要**再套一层 `ctx.effect(...)`。
 - provider 名为 `opengis`，`source` 为 `opengis`，候选 rank 为 600（即 `BUNDLED_SKILL_RANK`，与官方内置技能包一致），`invocation` 为模型与用户均可调用。
-- `list` 只返回元数据（名称、描述、rank、source、`locator`/`path`、`resourceBase`、来自上游 frontmatter 的 `metadata`）；`get` 每次重新读盘并解析正文与 `adaptations/<skill>.md`，因此编辑资产或适配文件后重新加载插件即可生效。`adaptations/common.md` 会拼到每个技能后面且进程内不变，所以按进程缓存一次成功读取的结果（失败的读取不缓存，调用方取消也不会污染共享缓存），避免每加载一个技能重复读同一文件。插件不注册工具、不注入提示段、不写会话状态。
-- **元数据只放 candidate**：宿主契约里 `SkillCandidate` 允许 `metadata`，而 `SkillSummary`（definition）不允许，所以 `metadata.category`/`metadata.tags`/`metadata.groups`/`metadata.keywords` 只出现在 `list` 结果上，`get` 结果保持干净；description 始终用上游原文，不因元数据改动而偏移。groups 与 keywords 来自本地 `lib/taxonomy.js`，与上游无关。
+- `list` 只返回元数据（名称、描述、rank、source、`locator`/`path`、`resourceBase`、来自上游 frontmatter 的 `metadata`），每次调用返回一个新数组、元素冻结，调用方排序或截断不会改到 provider 的目录；`get` 每次重新读盘并解析正文与 `adaptations/<skill>.md`，因此编辑资产或适配文件后重新加载插件即可生效。`adaptations/common.md` 在**一个 provider 实例内**缓存一次成功读取的结果（失败的读取不缓存，调用方取消也不会污染共享缓存），避免每加载一个技能重复读同一文件；改动它需要重载插件（或重启 DSH），而不是只重读技能正文。插件不注册工具、不注入提示段、不写会话状态。
+- **元数据只放 candidate**：`metadata.category`/`metadata.tags`/`metadata.groups`/`metadata.keywords` 只出现在 `list` 结果上，`get` 结果保持干净。宿主的两份契约都允许 definition 携带 `metadata`，但 registry 的 `toSummary()` 与 `skill` 工具都不会读它，返回它只是增加载荷；description 始终用上游原文，不因元数据改动而偏移。groups 与 keywords 来自本地 `lib/taxonomy.js`，与上游无关。
 - **目录可裁剪**：`apply(ctx, config)` 读 `groups`/`skills`/`exclude` 三个字段并交给 `selectSkills`；未知组名、未知技能名、筛完为空都直接抛错，因为一次拼错的过滤会静默返回一半目录，比启动失败更难发现。
-- **路由有回归**：`test/routing.test.mjs` 给每个技能准备两条中文请求，用关键词命中（×3）与描述里的拉丁词命中（×1）打分，要求 90% 以上命中第一名、全部命中前三名。这是对「英文描述 + 中文触发词」这层路由的可执行断言，改动关键词或重新同步上游后会立刻报出退步。
+- **路由判据有回归**：`test/routing.test.mjs` 给每个技能准备两条中文请求，用关键词命中（×3）与描述里的拉丁词命中（×1）打分，要求 90% 以上命中第一名、全部命中前三名。拉丁词按整词匹配（`geos` 不再命中 `geoserver`），因此这是对「英文描述 + 中文触发词」这层判据的可执行断言：改动关键词或重新同步上游后会立刻报出退步。注意 DSH 的模型侧目录只渲染名称与描述，所以该测试衡量的是判据是否分得开，不是网关真的按关键词排序。
 - **不设 `whenToUse`**：宿主虽然接受这个可选路由字段，但它只在网关的 user-invocable 技能列表（`/` 命令面板）里透出，模型可见的技能目录只渲染 `description`；上游 description 已经按「Use when … / Also for …」写好，再补一份 whenToUse 只会产生第二套会漂移的文案，因此本包不引入。
+- **兼容性有两层回归**：`test/dsh-contract.test.mjs` 按 0.2.2-rc.5 的 `validateCandidate`/`validateDefinition` 规则校验 45 个候选与正文；`test/dsh-integration.test.mjs` 自动探测本机安装的 DeepSeek Harness，用 `ELECTRON_RUN_AS_NODE` 把 provider 装进真实的 `SkillRegistry` 跑一遍（列表、加载、未知技能、取消、重名 provider），找不到安装或设置 `DSH_SKIP_INTEGRATION=1` 时跳过。CI 没有 DSH 时只跑前者，开发机两者都跑。
 - **校验分层**：`npm run validate` 把「会破坏下游契约或让内容不可发现」的问题设为错误（规范外 frontmatter 字段、license 不是 MIT、`metadata.category` 不是 `gis`、tags 数量或语法不对、description 超 500 字符/不以 `Use when` 开头/含尖括号或中文/重复、SKILL.md 超 500 行、`reference/` 有孤儿文件、分类法与技能目录不一致、适配层不达标），把「上游编辑口味」设为警告（缺「截至 YYYY-MM」时效标记、FAQ 少于 5 行、reference 超 100 行没有目录、代码围栏没语言、正文含 emoji），警告不会阻塞发布。
 - **适配层拼接**：`get` 返回的 `content` 是「上游正文 + 分隔线 + `adaptations/<skill>.md` + `adaptations/common.md`」。正文首部保持上游原样，所以 `reference/*.md` 与 `../<skill>/SKILL.md` 的相对链接仍按技能目录解析；共用约定放在最后，保证读到的最后一段是安全与平台约束。适配文件缺失或首行标题不对会直接报错并指出期望路径，而不是静默返回一个没有 DSH 指南的技能。
 - **运行时加固**：frontmatter 解析严格且容忍 UTF-8 BOM（`name` 必须为 kebab-case、`description` 必填，块标量与未闭合引号会报可读错误）；上游部分 `description` 存在**未转义的内层双引号**（非法 YAML 但语义明确），解析器按“首尾引号之间全部内容”宽容读取，未知转义保持字面，从而继续与上游字节一致而不必改写快照；`assets/` 缺失时报错会指明期望的资产根目录；`resourceBase` 在 Windows 上也统一输出为正斜杠，跨平台链接一致。

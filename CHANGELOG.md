@@ -5,6 +5,37 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.1] - 2026-11-19
+
+### Fixed — DeepSeek Harness 0.2.2 compatibility
+
+- **`get()` 现在按注册表契约返回 `undefined`**（`lib/index.js`）：候选不在本 provider 目录内、已被配置过滤掉、或 `SKILL.md` 在发现与加载之间被删除时，返回 `undefined` 让宿主报告「unknown or no longer available」；此前抛出的 `unknown skill` / `ENOENT` 会把一次普通查找变成工具失败。类型声明同步为 `Promise<OpenGisSkillDefinition | undefined>`（`lib/index.d.ts`）。
+- **取消不再被误报成安装损坏**（`lib/adaptations.js`）：`readFile` 取消时拒绝的是 `signal.reason` 而不是 `AbortError`，旧代码因此把取消包装成「missing DSH adaptation … run npm run validate」。新增 `isAbort()`（同时看 `signal.aborted`、`ABORT_ERR` 与 `AbortError`/`TimeoutError`），取消原样抛出；其余读取失败的错误信息带上错误码（`ENOENT`/`EACCES`），不再一律说成「缺文件」。
+- **注册表生命周期信号接入加载路径**：`apply()` 把 `registerProvider` 的 `control.signal` 传进 provider，与调用方 `options.signal` 合并（`AbortSignal.any`），插件卸载时正在进行的 `get()` 会及时收敛。
+- **工具清单按 0.2.2-rc.5 的真实来源重分**：`CORE_TOOLS` 改为官方分发自带的工具（`bash`、`pwsh`、文件与检索、`job_*`、`subagent` 家族、`skill`、`present`、`todo_write`、Web、`working_directory`、`ask_user_question`、目标与 Agent Teams 等，已对照 `dsh-base` 与 web 预设的行清单核实），`ops_bash`、`run_code`、`load_workspace_dependencies` 移到 `OPTIONAL_TOOLS`——它们分别来自第三方 Ops 插件、PTC 预设与 web 预设，并非每个构建都有。45 个适配文件仍各自引用不少于 2 个核心工具，`common.md` 引用 14 个，门槛不变。
+- **可选工具兜底措辞**：`common.md` 新增「shell 工具名」一条，说明 `ops_bash` 与官方 `bash` 是同一消费者的两种暴露方式、没有插件时替换即可；`load_workspace_dependencies` 缺失时按平台自探解释器路径。两处都带退路，`commonProblems` 的兜底约束得以通过。
+- **未完成标记检查对中文生效**（`lib/adaptations.js`）：旧正则把 `TODO/FIXME/TBD` 与 `待补充/占位` 放在同一组、外面套 ASCII 词边界符，中英文分支因此永远命不中中文文本。改为 ASCII 分支保留词边界、中文分支直接匹配，并排除合法词「占位符」；残留的 `待补充`/`占位` 现在会被 `npm run validate` 拒绝。
+
+### Fixed — routing, links, diagnostics
+
+- **路由打分改为整词匹配**（`lib/taxonomy.js`）：描述里的拉丁词此前用裸 `includes`，`geos` 会命中 `GeoServer`、`jts` 会命中版本号。新增 `containsTerm()` 对含拉丁字母的词要求前后非字母数字边界，纯中文关键词仍按子串匹配；给 `pyqgis` 补 `QGIS 环境`、`initQgis` 两个请求原话，中文用例仍全部命中前三。
+- **Markdown 链接正则支持一层成对括号**（`lib/markdown-links.js`）：形如 `x → reference/foo_(bar).md` 的链接不再被截成 `reference/foo_(bar`，目标也不再跨行；资产里当前没有这类链接，属于失败即报错的健壮性修复。
+- **`list()` 每次返回新数组**：元素仍冻结，但调用方排序或截断不再可能改到 provider 内部目录。
+- **`check-citations.mjs` 版本号按整词比对**：`3.9` 不再被 `13.9`/`3.9.1` 误命中，真实漂移不再被掩盖。
+- **`check-adaptations.mjs` 不再重复报标题错误**：`adaptationProblems` 已报「must start with」时不再追加一条 `wrong heading`。
+
+### Added
+
+- **`test/dsh-contract.test.mjs`**：按 `@deepseek-ai/dsh-skill` 0.2.2-rc.5 的 `validateCandidate`/`validateDefinition` 规则回归 45 个候选与 45 份正文（kebab-case 名称、非空描述、布尔 invocation、字符串 source/provider、有限 rank、provider 与注册名一致、`locator` 存在、可选 `path`/`whenToUse`/`resourceBase`、定义名与候选一致、`content` 为字符串），并覆盖 `list()` 返回新数组、`get()` 对未知候选与已过滤候选返回 `undefined`。
+- **`test/dsh-integration.test.mjs`**：自动探测本机安装的 DeepSeek Harness，用 `ELECTRON_RUN_AS_NODE` 在真实的 `@deepseek-ai/dsh-skill` 注册表里跑 provider（45 个候选、加载 `gdal`、未知技能返回 `undefined`、取消传播、重名 provider 被拒）；没有安装或设置 `DSH_SKIP_INTEGRATION=1` 时跳过。
+- **`plugin.test.mjs` 新增「文件消失」用例**：用临时夹具验证发现之后删除 `SKILL.md` 返回 `undefined`。
+- **`npm run check` 与 CI 纳入 `check:adaptations`**：此前 `check` 只有 validate/citations/test，适配层的独立校验脚本不在发布门禁里。
+
+### Changed
+
+- **README 兼容性声明改为可核查的表述**：删掉「契约在 0.2.0-rc.2 与 0.2.1-rc.2 之间字节一致」这类无证据断言，明确「已实测 `0.2.2-rc.5`」；同时修正 `metadata` 对模型不可见（目录只渲染名称与描述）、`ops_bash`/`run_code` 的真实来源、`spillPath` 已删除、包体积按实测写、示例路径去个人化。
+- **`common.md` 不再让模型去看 `metadata.keywords`/`groups`**：DSH 的模型侧目录只给名称与描述，那条指引不可执行；改为「按名称与描述判断，加载后按正文切换」。
+- **新增 Plugins 详情文档**：`docs/DETAIL.md` 由 `locale/{en,zh}.json` 的 `meta.detail` 指向，插件详情页不再退回渲染 48 KB 的 README；`files` 相应加上 `docs/`。
 ## [0.5.0] - 2026-11-17
 
 ### Added

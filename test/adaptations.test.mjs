@@ -121,14 +121,23 @@ test("commonProblems rejects a stub shared file", () => {
 });
 
 test("the tool whitelist splits core tools from optional-plugin capabilities", () => {
-	assert.ok(CORE_TOOLS.includes("ops_bash"), "ops_bash ships with every build");
-	assert.ok(CORE_TOOLS.includes("read_image"), "read_image ships with every build");
-	assert.ok(!CORE_TOOLS.includes("spawn_teammate"), "Agent Teams is an optional plugin");
-	assert.ok(OPTIONAL_TOOLS.includes("spawn_teammate"), "Agent Teams tools stay citable");
+	// Core: tools the official distribution itself ships (verified against the
+	// 0.2.2-rc.5 base bundle and the web-app preset that mounts the rest).
+	assert.ok(CORE_TOOLS.includes("skill"), "skill ships with the official distribution");
+	assert.ok(CORE_TOOLS.includes("bash"), "the official shell consumer is bash");
+	assert.ok(CORE_TOOLS.includes("read_image"), "read_image ships with the official distribution");
+	assert.ok(CORE_TOOLS.includes("send_message"), "subagent control ships with the official distribution");
+	// Optional: third-party plugins, opt-in bundles, and non-default presets.
+	assert.ok(!CORE_TOOLS.includes("ops_bash"), "ops_bash comes from the third-party ops plugin");
+	assert.ok(OPTIONAL_TOOLS.includes("ops_bash"), "ops_bash stays citable with a fallback");
+	assert.ok(!CORE_TOOLS.includes("run_code"), "run_code exists only in the programmatic-tool preset");
+	assert.ok(OPTIONAL_TOOLS.includes("run_code"), "run_code stays citable with a fallback");
+	assert.ok(!CORE_TOOLS.includes("spawn_teammate"), "spawn_teammate belongs to a legacy Agent Teams tool");
+	assert.ok(OPTIONAL_TOOLS.includes("spawn_teammate"), "legacy tool names stay citable");
 	assert.ok(OPTIONAL_TOOLS.includes("windows_desktop"), "desktop control is an optional plugin");
 	const text = ["`skill`", "`spawn_teammate`", "`wait_agent`", "`read`"].join(" ");
 	assert.deepEqual(citedTools(text), ["skill", "spawn_teammate", "wait_agent", "read"]);
-	assert.deepEqual(citedCoreTools(text), ["skill", "read"], "only core tools count toward the minimum");
+	assert.deepEqual(citedCoreTools(text), ["skill", "wait_agent", "read"], "only core tools count toward the minimum");
 });
 
 test("adaptationProblems rejects optional-only citations and prose-only probes", () => {

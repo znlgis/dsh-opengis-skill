@@ -65,7 +65,11 @@ for (const name of targets) {
 	checked += 1;
 	const text = readText(file);
 	const found = adaptationProblems(name, text);
-	if (!text.startsWith(SKILL_HEADING)) found.unshift(ADAPTATION_DIRECTORY + "/" + name + ".md: wrong heading");
+	// adaptationProblems already reports a wrong heading; only add the terse
+	// notice when it did not, so one bad file yields one heading diagnostic.
+	if (!text.startsWith(SKILL_HEADING) && !found.some((problem) => problem.includes("must start with"))) {
+		found.unshift(ADAPTATION_DIRECTORY + "/" + name + ".md: wrong heading");
+	}
 	problems.push(...found);
 	console.log(name + ": " + text.length + " chars, " + (found.length === 0 ? "ok" : found.length + " problem(s)"));
 }

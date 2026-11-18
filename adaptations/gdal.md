@@ -5,7 +5,7 @@
   - 一次格式转换通常只需要 vector 参考，不要三个文件全读。
   - 需要坐标转换知识时用 `skill` 加载 `proj`，导入后的发布用 `skill` 加载 `geoserver`
 - **执行环境**：命令走 `ops_bash`。
-  - Windows 上 `apt-get`/`sudo` 不可用：本机装了 OSGeo4W 时直接调绝对路径（如 `/c/OSGeo4W/bin/ogr2ogr.exe`）或把 `C:\\OSGeo4W\\bin` 加进 `PATH`，否则用 conda-forge（`conda install -c conda-forge gdal`）或容器 `docker run --rm -v "$PWD:/data" -w /data osgeo/gdal:latest`（容器内写成 `/data/...`，别把宿主 `D:\\...` 路径直接传进去）。
+  - Windows 上 `apt-get`/`sudo` 不可用：本机装了 OSGeo4W 时直接调绝对路径（如 `/c/OSGeo4W/bin/ogr2ogr.exe`）或把 `C:\OSGeo4W\bin`（bash 里 `/c/OSGeo4W/bin`）加进 `PATH`，否则用 conda-forge（`conda install -c conda-forge gdal`）或容器 `docker run --rm -v "$PWD:/data" -w /data osgeo/gdal:latest`（容器内写成 `/data/...`，别把宿主 `D:\...` 路径直接传进去）。
   - 批量任务前先 `todo_write` 列出「探测版本 → 转换 → 抽检」，千级文件以上分批跑
   - 整目录镶嵌、多源重投影这类几分钟以上的活放后台作业（`run_in_background`），再用 `job_output` 跟进度、`job_kill` 收尾，别让一次调用卡住会话。
 - **先探测版本**：`gdalinfo --version`、`ogrinfo --version` 一次拿到实际版本

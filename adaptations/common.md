@@ -3,18 +3,19 @@
 本节只解决一件事：把上面的 GIS 知识放进 DSH 会话里跑起来。命令细节以技能正文与 `reference/*.md` 为准；本节讲的是技能与 shell 描述、工具说明里没写、但 GIS 任务实际会踩到的部分。
 
 - **技能加载**：会话技能目录只给名称与描述，判断匹配就先用 `skill` 按名加载再动手，不要凭目录摘要臆测内容；同一任务里同一个技能不要重复加载。需要相邻技能时同样用 `skill` 加载，而不是用 `read` 读兄弟目录的 `SKILL.md`——两条路径加载到的不一定是同一份内容。`opengis-all` 是索引型入口，先由它定位阶段，再加载具体技能。
-  - 判断不准时先看候选技能的 `metadata.keywords` 与 `groups`；关键词是中文提问的命中词，比英文描述更接近用户的说法。
+  - 判断只看会话技能目录里给出的**名称与描述**：目录不展示候选的 `metadata.keywords`/`groups`，那是宿主侧的路由字段，模型看不到也不该依赖。名称或描述命中就加载，加载后再按正文判断是否切到相邻技能。
   - 本项目只带知识不带能力：装了 MCP 桥（qgis_mcp、gis-mcp、geoserver-mcp 之类）的会话优先调工具，没有桥就用本机 CLI，两者都不要假装已经执行。
 - **引用资料**：加载结果会给出该技能的 Base directory，正文里的 `reference/*.md` 相对它解析。
   - 先用 `read` 读该文件开头的 `## Contents` 定位小节，再按 `offset`/`limit` 分段取用，或用 `grep` 搜关键词、`glob` 找同目录还有哪些文件。
   - 不要把整套参考一次读进上下文；多数任务只需要一个参考文件的两三节。
-- **长任务与后台作业**：启动服务、全库导入、整目录镶嵌、源码编译、大文件重投影这类几分钟以上的活，用 `ops_bash` 的 `run_in_background` 起作业。
+- **shell 工具名**：本包正文里的 `ops_bash` 指"会话提供的 Bash 工具"。装了 Ops 类插件的会话叫 `ops_bash`；只装了官方工具的会话叫 `bash`，参数与行为一致——没有 `ops_bash` 时就把正文里的 `ops_bash` 换成 `bash`。两者都是 Windows 下的 MSYS Bash，Windows 原生命令仍走 `pwsh`。只暴露 `run_code` 的 PTC 会话则在 TypeScript 程序里按生成的 SDK 调同名工具。
+- **长任务与后台作业**：启动服务、全库导入、整目录镶嵌、源码编译、大文件重投影这类几分钟以上的活，用 shell 工具的 `run_in_background` 起作业——有 `ops_bash` 就用它，没有 `ops_bash` 时用官方 `bash`，两者都把进程登记成作业。
   - 拿 `jobId` 后用 `job_output`（可带 wait）收日志、`job_kill` 收尾；前台调用超时会被提升成后台作业，这不是失败，别重复再跑一遍。
   - 轮询期间先做别的独立步骤，不要空等；启动类任务等的是就绪日志行，不是固定 sleep。
 - **Windows 改写**：正文里的 `sudo`、`apt-get`、`/tmp`、`export VAR=`、heredoc 都是 Linux 写法。
   - Windows 没有 `sudo`/`apt`，改用官方安装包、conda-forge 或 Docker；环境变量在 `pwsh` 里写 `$env:VAR = "value"`，在 bash 里只能写成单条命令前缀 `VAR=value cmd`。
-  - 临时目录用会话工作区；含空格的路径必须整体加引号。装了 OSGeo4W 的机器上 GDAL/MapServer/QGIS 都在 `C:\\OSGeo4W\\bin`，优先用绝对路径调用，避免 PATH 里残留旧版本。
-- **随包运行时**：`load_workspace_dependencies` 返回本机随包 Python/Node 的绝对路径与随包库清单。
+  - 临时目录用会话工作区；含空格的路径必须整体加引号。装了 OSGeo4W 的机器上 GDAL/MapServer/QGIS 都在 `C:\OSGeo4W\bin`（bash 里写 `/c/OSGeo4W/bin`），优先用绝对路径调用，避免 PATH 里残留旧版本。
+- **随包运行时**：`load_workspace_dependencies` 返回本机随包 Python/Node 的绝对路径与随包库清单；没有这个工具时按平台自己探（`python -c "import sys; print(sys.executable)"`、`node -p "process.execPath"`），结论一样。
   - 这套 Python 带 numpy/pandas/Pillow/python-docx/openpyxl，但**没有** GDAL、Shapely、GeoPandas、rasterio、pyproj 绑定，GIS 计算仍要真的装对应发行版或走 OSGeo4W/conda/Docker。
   - 不要拿着随包解释器反复试 import；需要连解释器时用返回的绝对路径，并先 `print(sys.executable)` 确认不是 QGIS/GDAL 自带的那份。
 - **先探测再执行**：先跑版本与可用性探测（`--version`、`ls -l`、`docker --version`、`npm ls <pkg>`），再按实际版本挑命令。

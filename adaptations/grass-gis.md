@@ -4,7 +4,7 @@
   - 正文按 GRASS GIS 8.5.0（8.4 LTR 最新补丁 8.4.2）编写，按任务跳「grass 启动器与无头执行」「g.region 计算区域管理」「数据导入导出」，Python 脚本化看「Python 脚本化」一节。
   - 本技能几乎不需要 `read` 参考文件，但和 `gdal`（`r.out.gdal` 后的格式与元数据核对）、`qgis-process` 经常连用，用 `skill` 按名加载，别去读兄弟目录的 SKILL.md
 - **执行环境**：命令走 `ops_bash`（Windows 下是 MSYS bash）。
-  - 正文的 `sudo apt install grass` 在 Windows 不存在：先探测 `grass --version`，没有就走 OSGeo4W 安装器（装好后在 OSGeo4W Shell 里用），或 `conda install -c conda-forge grass`，再不行 `docker run --rm -v "$PWD:/data" -w /data osgeo/grass-gis:latest grass ...`（容器内路径写 `/data`，别把 `D:\\...` 传进去）。
+  - 正文的 `sudo apt install grass` 在 Windows 不存在：先探测 `grass --version`，没有就走 OSGeo4W 安装器（装好后在 OSGeo4W Shell 里用），或 `conda install -c conda-forge grass`，再不行 `docker run --rm -v "$PWD:/data" -w /data osgeo/grass-gis:latest grass ...`（容器内路径写 `/data`，别把 `D:\...` 传进去）。
   - `$HOME/grassdata` 换成会话工作区里的固定目录，避免每次换路径。
   - 正文 `--exec sh -c '...'` 的多行引用在 Windows 上不可靠，改写成单个 `.py` 脚本再用 `grass --tmp-project EPSG:3857 --exec python3 analysis.py`。
   - 整条地形分析链（import → slope → 导出）是长任务，用 `ops_bash` 的 `run_in_background` 跑，`job_output` 看日志。

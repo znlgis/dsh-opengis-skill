@@ -130,12 +130,41 @@ test("every bundled skill ships DSH guidance and every adaptation belongs to a s
 	}
 });
 
-test("unknown skill names fail with a clear error", async () => {
+test("an unknown candidate resolves undefined, as the registry contract asks", async () => {
 	const provider = loadProvider();
-	await assert.rejects(
-		() => provider.get({ name: "does-not-exist" }, { signal: new AbortController().signal }),
-		/unknown skill "does-not-exist"/u
-	);
+	// The registry promises "SkillDefinition | undefined" for a candidate that is
+	// no longer loadable, so a stale name must not surface as a provider error.
+	assert.equal(await provider.get({ name: "does-not-exist" }, { signal: new AbortController().signal }), undefined);
+});
+
+test("a listed skill whose file disappears resolves undefined instead of failing", async () => {
+	const { createProvider } = await import("../lib/index.js");
+	const { copyFileSync, mkdtempSync, mkdirSync, rmSync, writeFileSync } = await import("node:fs");
+	const { tmpdir } = await import("node:os");
+	const fixture = mkdtempSync(join(tmpdir(), "opengis-contract-"));
+	try {
+		const assets = join(fixture, "assets");
+		const adaptations = join(fixture, "adaptations");
+		mkdirSync(join(assets, "alpha"), { recursive: true });
+		mkdirSync(adaptations, { recursive: true });
+		writeFileSync(
+			join(assets, "alpha", "SKILL.md"),
+			"---\nname: alpha\ndescription: \"Use when proving the fixture.\"\n---\n\n# Alpha\n"
+		);
+		copyFileSync(join(root, "adaptations", "common.md"), join(adaptations, "common.md"));
+		copyFileSync(join(root, "adaptations", "gdal.md"), join(adaptations, "alpha.md"));
+		const provider = createProvider({ assetRoot: assets, adaptationRoot: adaptations });
+		const [candidate] = await provider.list({ signal: new AbortController().signal });
+		assert.ok((await provider.get(candidate, { signal: new AbortController().signal })) !== undefined);
+		rmSync(join(assets, "alpha"), { recursive: true, force: true });
+		assert.equal(
+			await provider.get(candidate, { signal: new AbortController().signal }),
+			undefined,
+			"a vanished skill is no longer loadable, not a load failure"
+		);
+	} finally {
+		rmSync(fixture, { recursive: true, force: true });
+	}
 });
 
 test("loading honors an aborted lookup signal", async () => {

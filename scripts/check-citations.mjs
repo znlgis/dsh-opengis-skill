@@ -89,6 +89,23 @@ function skillCorpus(directory) {
 	return parts.join("\n");
 }
 
+/**
+ * Report whether one skill corpus mentions a version as a whole version.
+ *
+ * A plain "includes" test hides real drift: "3.9" also matches inside "13.9"
+ * and "3.9.1", so guidance copied from a neighbouring skill can look correct.
+ * The same lookarounds the scans use are applied here, so a match has to be a
+ * complete version token.
+ *
+ * @param corpus - the skill body plus every reference file.
+ * @param version - the version text to look for.
+ * @returns whether the corpus mentions that exact version token.
+ */
+function mentionsVersion(corpus, version) {
+	const pattern = new RegExp("(?<![\\d.])" + version.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&") + "(?![\\d.])", "u");
+	return pattern.test(corpus);
+}
+
 const skills = readSkillCatalog(assetsRoot);
 const names = new Set(skills.map((skill) => skill.name));
 const directories = new Map(skills.map((skill) => [skill.name, skill.directory]));
@@ -114,11 +131,11 @@ for (const skill of skills) {
 	const exact = new Set();
 	for (const match of text.matchAll(THREE_PART)) {
 		exact.add(match[1]);
-		if (corpus.includes(match[1])) continue;
+		if (mentionsVersion(corpus, match[1])) continue;
 		error(label + ": cites version " + match[1] + ", which " + skill.name + " does not document; the body and the guidance have drifted apart");
 	}
 	for (const match of text.matchAll(TWO_PART)) {
-		if (exact.has(match[1]) || [...exact].some((version) => version.startsWith(match[1] + ".")) || corpus.includes(match[1])) continue;
+		if (exact.has(match[1]) || [...exact].some((version) => version.startsWith(match[1] + ".")) || mentionsVersion(corpus, match[1])) continue;
 		warn(label + ": mentions " + match[1] + ", which " + skill.name + " does not document; keep it only if it is a migration note");
 	}
 }

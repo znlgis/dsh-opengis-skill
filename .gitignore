@@ -1,5 +1,6 @@
 node_modules/
 .tmp/
+.scratch/
 coverage/
 
 # CI checkout of the pinned opengis-skills repository (.github/workflows/ci.yml)

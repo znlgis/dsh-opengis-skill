@@ -13,6 +13,29 @@ export declare const SKILL_HEADING: "## DeepSeek Harness 使用建议";
 /** Separator between the upstream body and the DSH guidance block. */
 export declare const SKILL_SEPARATOR: string;
 
+/** Degradation reason: the per-skill guidance file is missing, the skill still loads. */
+export declare const DEGRADE_ADAPTATION_MISSING: "adaptation-missing";
+
+/** Report whether one read failure means the path no longer exists. */
+export declare function isMissingFile(cause: unknown): boolean;
+
+/** Record one degradation for a skill. */
+export declare function recordDegradation(root: string, name: string, reason: string): void;
+
+/** Forget the recorded degradation of one skill, when present. */
+export declare function clearDegradation(root: string, name: string): void;
+
+/** List the current degradations of one adaptation root, sorted by skill name. */
+export declare function degradationsOf(root: string): { skill: string; reason: string }[];
+
+/** One synchronous adaptation read for diagnostics. */
+export interface OpenGisInspectedAdaptation {
+	/** Normalized guidance text, empty when the file is missing. */
+	text: string;
+	/** Degradation reason, null when the guidance is present. */
+	reason: string | null;
+}
+
 /** Labels every per-skill guidance must keep, in this order. */
 export declare const REQUIRED_LABELS: readonly string[];
 
@@ -55,8 +78,11 @@ export declare function readAdaptationSync(root: string, name: string): string;
 /** Read and normalize the shared adaptation file (synchronous). */
 export declare function readCommonSync(root: string): string;
 
-/** Read one per-skill adaptation file (asynchronous). */
+/** Read one per-skill adaptation file (asynchronous); "" when it is missing (degraded). */
 export declare function readAdaptation(root: string, name: string, signal?: AbortSignal): Promise<string>;
+
+/** Read one per-skill adaptation file synchronously for diagnostics. */
+export declare function inspectAdaptationSync(root: string, name: string): OpenGisInspectedAdaptation;
 
 /** Read the shared adaptation file (asynchronous). */
 export declare function readCommon(root: string, signal?: AbortSignal): Promise<string>;

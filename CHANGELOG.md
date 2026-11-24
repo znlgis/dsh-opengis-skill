@@ -5,6 +5,26 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added — 可诊断性与兼容性证据
+
+- **`diagnose()`**（`lib/diagnose.js`，包根再导出）：同步、只读、不抛错的诊断入口，返回 `provider`/`packageVersion`/`skills`/`visible`/`missing`/`degraded`/`danglingRefs`/`hashMismatch`/`catalogTokens`/`hostVersionHint`/`healthy`，外加 `problems` 汇总内部异常。`healthy` 严格等于四个契约数组全空；`catalogTokens` 口径为 `ceil(Σ 可见 description 字符数 / 4)`；`hostVersionHint` 先看 `DSH_VERSION`/`DSH_HOST_VERSION`，再从已安装桌面应用的 `app.asar` 里读运行时版本，探不到给 `null`。普通 Node 无法把 `app.asar` 当目录读，因此这里按 ASAR 头解析成员，失败静默降级。
+- **`npm run diagnose`**（`scripts/diagnose.mjs`）：JSON 到 stdout，`healthy === true` 退 0、否则退 1；`--human` 输出中文摘要。
+- **交叉引用判定抽成 `lib/citations.js`**：`scripts/check-citations.mjs` 与 `diagnose()` 共用同一套规则（技能名指针、三段式版本漂移、两段式版本警告），避免 CI 门禁与诊断结论各说一套。
+- **场景预设**（`lib/taxonomy.js` 的 `SCENARIO_PRESETS`）：`web`/`server`/`data`/`all` 四个预设映射到分组集合；插件配置新增 `scenario` 字段，与 `groups` 取并集、非空 `skills` 覆盖分组、`exclude` 最后应用，未知场景名报错。
+- **`dsh.compatibility` + `npm run compat:report`**：`package.json` 声明实测版本与证据测试文件（`verified[].evidence` 必须真实存在，`npm run validate` 会校验），`scripts/compat-report.mjs` 真实执行契约测试与集成测试并生成 `docs/compatibility.md`（退出码、通过/失败/跳过数、耗时、生成时间、探测到的 DSH 版本）；测试文件缺失或全部跳过时写 `not-run` 与原因，绝不伪造 pass。
+
+### Fixed — 缺适配文件不再让技能加载失败
+
+- **`readAdaptation` 区分两类失败**（`lib/adaptations.js`）：文件缺失（`ENOENT`/`ENOTDIR`/`EISDIR`）时返回空串并记入模块内降级表，技能降级为「上游正文 + `common.md`」继续加载；内容不合规（不以 `## DeepSeek Harness 使用建议` 开头）仍然抛错，因为那是打包错误。`composeSkillContent` 在无专属指南时不再留下重复分隔符。降级表以 adaptation root 为键而不是挂在 provider 上：`get()` 的返回值受宿主 `validateDefinition` 约束、provider 对象是冻结的，而 `diagnose()` 必须同步（一行 `node -e` 会直接 `JSON.stringify` 结果），同步探测路径与异步加载路径共用同一张表。
+
+### Changed
+
+- **README**：新增「可诊断」「场景预设」「目录 token 估算口径」「机器可读兼容性证据」说明；目录结构补 `lib/citations.js`、`lib/diagnose.js`、两个新脚本与 `docs/compatibility.md`；故障排查补诊断用法、`unknown scenario` 与降级语义。
+- **`npm run validate` 扩展**：`REQUIRED_SCRIPTS` 增加 `diagnose`/`compat:report`；新增 `checkCompatibility` 校验 `dsh.compatibility` 形状、`verified[].evidence` 指向真实文件、`docs/compatibility.md` 携带生成标记；入口脚本必须存在。
+- **测试**：新增 `test/diagnose.test.mjs`（好包全绿、缺 adaptation 降级、内容不合规仍抛错、哈希不符、缺失技能、悬空引用、坏安装不崩溃、非法配置、版本探测）；`test/taxonomy.test.mjs` 增加场景预设与优先级用例；`test/adaptations.test.mjs` 增加降级与同步/异步一致性用例；`test/scripts.test.mjs` 增加 `node -e` 动态 import、诊断 CLI 退出码、`compat:report` 的 pass / not-run 两种诚实记录。
+
 ## [0.5.1] - 2026-11-19
 
 ### Fixed — DeepSeek Harness 0.2.2 compatibility

@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { cpSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
@@ -11,8 +12,12 @@ import {
 	commonProblems,
 	composeSkillContent,
 	CORE_TOOLS,
+	DEGRADE_ADAPTATION_MISSING,
+	degradationsOf,
+	inspectAdaptationSync,
 	listAdaptations,
 	OPTIONAL_TOOLS,
+	readAdaptation,
 	readAdaptationSync,
 	readCommonSync,
 	SKILL_SEPARATOR
@@ -44,6 +49,15 @@ test("every vendored skill has a readable adaptation starting with the required 
 		assert.ok(text.startsWith("## DeepSeek Harness 使用建议"), skill.name + ".md must start with the per-skill heading");
 		assert.deepEqual(adaptationProblems(skill.name, text), [], skill.name + ".md must pass its structural checks");
 	}
+});
+
+test("composeSkillContent skips the per-skill block when the guidance is missing", () => {
+	const body = "# GDAL\n\nBody.";
+	const common = "## DeepSeek Harness 通用约定\n\n- **加载与引用**：y";
+	const degraded = composeSkillContent(body, "", common);
+	assert.ok(degraded.startsWith(body));
+	assert.ok(degraded.includes("## DeepSeek Harness 通用约定"));
+	assert.ok(!degraded.includes("\n\n\n\n"), "an empty guidance block must not leave a doubled separator");
 });
 
 test("the shared adaptation is readable and passes its checks", () => {
@@ -113,6 +127,44 @@ test("adaptationProblems rejects structural damage", () => {
 	assert.ok(adaptationProblems("gdal", good + "\n# H1").some((problem) => problem.includes("top-level heading")));
 	assert.ok(adaptationProblems("gdal", "## DeepSeek Harness 使用建议\nshort").some((problem) => problem.includes("too short")));
 	assert.ok(adaptationProblems("gdal", good + "\r\n").some((problem) => problem.includes("CR bytes")));
+});
+
+test("a missing per-skill guidance file degrades instead of throwing", async () => {
+	const directory = mkdtempSync(join(tmpdir(), "opengis-adaptation-degrade-"));
+	try {
+		const degradedRoot = join(directory, "adaptations");
+		mkdirSync(degradedRoot, { recursive: true });
+		cpSync(join(adaptationRoot, "common.md"), join(degradedRoot, "common.md"));
+
+		assert.equal(await readAdaptation(degradedRoot, "gdal"), "", "a missing file must read as empty guidance");
+		assert.deepEqual(degradationsOf(degradedRoot), [{ skill: "gdal", reason: DEGRADE_ADAPTATION_MISSING }]);
+
+		const inspected = inspectAdaptationSync(degradedRoot, "gdal");
+		assert.equal(inspected.text, "");
+		assert.equal(inspected.reason, DEGRADE_ADAPTATION_MISSING);
+		assert.deepEqual(degradationsOf(degradedRoot), [{ skill: "gdal", reason: DEGRADE_ADAPTATION_MISSING }]);
+
+		// Recovering the file clears the recorded degradation.
+		cpSync(join(adaptationRoot, "gdal.md"), join(degradedRoot, "gdal.md"));
+		const recovered = await readAdaptation(degradedRoot, "gdal");
+		assert.ok(recovered.startsWith("## DeepSeek Harness 使用建议"));
+		assert.deepEqual(degradationsOf(degradedRoot), [], "a successful read must forget the degradation");
+	} finally {
+		rmSync(directory, { recursive: true, force: true });
+	}
+});
+
+test("malformed guidance still throws, and the synchronous variant matches", async () => {
+	const directory = mkdtempSync(join(tmpdir(), "opengis-adaptation-malformed-"));
+	try {
+		writeFileSync(join(directory, "gdal.md"), "## 不是必需的标题\n\n- **加载与引用**：x\n");
+		await assert.rejects(() => readAdaptation(directory, "gdal"), /must start with/u);
+		assert.throws(() => readAdaptationSync(directory, "gdal"), /must start with/u);
+		assert.throws(() => inspectAdaptationSync(directory, "gdal"), /must start with/u);
+		assert.deepEqual(degradationsOf(directory), [], "a malformed file is not a degradation");
+	} finally {
+		rmSync(directory, { recursive: true, force: true });
+	}
 });
 
 test("commonProblems rejects a stub shared file", () => {

@@ -41,6 +41,28 @@
   "dsh": {
     "bundle": {
       "patch": "./cordis.patch.yml"
+    },
+    "compatibility": {
+      "verified": [
+        {
+          "version": "0.2.2-rc.5",
+          "date": "2026-11-24",
+          "result": "pass",
+          "evidence": "test/dsh-contract.test.mjs"
+        },
+        {
+          "version": "0.2.2-rc.5",
+          "date": "2026-11-24",
+          "result": "pass",
+          "evidence": "test/dsh-integration.test.mjs"
+        }
+      ],
+      "assumed": [
+        {
+          "range": ">=0.2.0-rc.2 <0.2.2-rc.5",
+          "reason": "engines.dsh 声明范围，未逐一实测"
+        }
+      ]
     }
   },
   "scripts": {
@@ -49,6 +71,8 @@
     "validate": "node scripts/validate-skills.mjs",
     "check:adaptations": "node scripts/check-adaptations.mjs",
     "check:citations": "node scripts/check-citations.mjs",
+    "diagnose": "node scripts/diagnose.mjs",
+    "compat:report": "node scripts/compat-report.mjs",
     "test": "node --test",
     "check": "npm run validate && npm run check:adaptations && npm run check:citations && npm test",
     "prepublishOnly": "npm run check"

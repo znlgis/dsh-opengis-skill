@@ -8,6 +8,8 @@ import {
 	groupsOf,
 	keywordsOf,
 	normalizeSelection,
+	SCENARIO_IDS,
+	SCENARIO_PRESETS,
 	selectSkills,
 	taxonomyProblems
 } from "../lib/taxonomy.js";
@@ -44,11 +46,12 @@ test("every group is non-empty and every skill belongs to a known group", () => 
 });
 
 test("normalizeSelection rejects unknown names instead of ignoring them", () => {
-	assert.deepEqual(normalizeSelection(undefined, skills), { groups: [], only: [], exclude: [] });
+	assert.deepEqual(normalizeSelection(undefined, skills), { groups: [], only: [], exclude: [], scenario: null });
 	assert.deepEqual(normalizeSelection({ groups: ["data"], exclude: ["gdal"] }, skills), {
 		groups: ["data"],
 		only: [],
-		exclude: ["gdal"]
+		exclude: ["gdal"],
+		scenario: null
 	});
 	assert.throws(() => normalizeSelection({ groups: ["nope"] }, skills), /unknown group "nope"/u);
 	assert.throws(() => normalizeSelection({ skills: ["nope"] }, skills), /unknown skill "nope"/u);
@@ -76,6 +79,48 @@ test("selectSkills unions groups, lets skills win, and applies exclude last", ()
 		() => selectSkills(skills, normalizeSelection({ groups: ["desktop"], exclude: ["qgis-process", "pyqgis", "geolibre"] }, skills)),
 		/selects no skill/u
 	);
+});
+
+test("every scenario preset names known groups", () => {
+	assert.deepEqual([...SCENARIO_IDS], ["web", "server", "data", "all"], "the documented presets must stay in place");
+	assert.deepEqual(Object.keys(SCENARIO_PRESETS).sort(), [...SCENARIO_IDS].sort(), "every preset id must map to a group set");
+	for (const id of SCENARIO_IDS) {
+		const groups = SCENARIO_PRESETS[id];
+		assert.ok(groups.length > 0, "scenario " + id + " has no groups");
+		for (const group of groups) assert.ok(GROUP_IDS.includes(group), "scenario " + id + " names unknown group " + group);
+	}
+	assert.deepEqual([...SCENARIO_PRESETS.all], [...GROUP_IDS], '"all" must stay the union of every group');
+});
+
+test("every scenario preset selects the expected skills", () => {
+	const expected = { web: 10, server: 7, data: 11, all: 45 };
+	for (const id of SCENARIO_IDS) {
+		const selection = normalizeSelection({ scenario: id }, skills);
+		assert.equal(selection.scenario, id);
+		const selected = selectSkills(skills, selection);
+		assert.equal(selected.length, expected[id], "scenario " + id + " must select " + expected[id] + " skill(s)");
+		for (const skill of selected) {
+			const groups = groupsOf(skill.name);
+			assert.ok(groups.some((group) => SCENARIO_PRESETS[id].includes(group)), skill.name + " is not inside scenario " + id);
+		}
+	}
+});
+
+test("scenario unions with groups, and an explicit skill list still wins", () => {
+	const union = selectSkills(skills, normalizeSelection({ scenario: "web", groups: ["server"] }, skills));
+	const web = selectSkills(skills, normalizeSelection({ scenario: "web" }, skills));
+	const server = selectSkills(skills, normalizeSelection({ groups: ["server"] }, skills));
+	assert.ok(union.length > web.length);
+	assert.deepEqual(union.map((skill) => skill.name).sort(), [...new Set([...web, ...server].map((skill) => skill.name))].sort());
+
+	const explicit = selectSkills(skills, normalizeSelection({ scenario: "server", skills: ["shapely"] }, skills));
+	assert.deepEqual(explicit.map((skill) => skill.name), ["shapely"], "a skill allow list wins over a scenario");
+
+	const excluded = selectSkills(skills, normalizeSelection({ scenario: "web", exclude: ["leaflet"] }, skills));
+	assert.equal(excluded.some((skill) => skill.name === "leaflet"), false, "exclude applies last");
+
+	assert.throws(() => normalizeSelection({ scenario: "webb" }, skills), /unknown scenario "webb"; valid scenarios are web, server, data, all/u);
+	assert.throws(() => normalizeSelection({ scenario: 5 }, skills), /unknown scenario/u);
 });
 
 test("the selection keeps the catalog order", () => {

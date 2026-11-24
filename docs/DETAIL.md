@@ -6,7 +6,8 @@
 
 - **按需加载**：注册 `ctx.skills` provider；会话技能目录只列出名称与描述，正文与 `reference/*.md` 在调用 `skill` 时读取。
 - **只加这层 harness 需要的东西**：上游正文逐字节保留，`adaptations/` 里的 DSH 执行约定（工具映射、Windows 改写、后台作业、产物验证、风险与权限、可选插件退路）在加载时追加。
-- **可裁剪**：插件配置 `groups` / `skills` / `exclude` 把目录裁到当前任务需要的范围，浏览器地图会话不必为服务端与数据库技能付上下文。
+- **可裁剪**：插件配置 `scenario`（`web` / `server` / `data` / `all`）/ `groups` / `skills` / `exclude` 把目录裁到当前任务需要的范围，浏览器地图会话不必为服务端与数据库技能付上下文。
+- **可诊断**：`npm run diagnose`（或 `node -e` 一行调用 `diagnose()`）报告缺失技能、降级技能、悬空引用、快照哈希不符与目录 token 估算，`healthy` 为假时退出码为 1；缺一个适配文件只会让该技能降级，不会让整个技能加载失败。
 - **可启停**：单包同时是 bundle 与插件（`dsh.bundle.patch`），在 **Plugins** 里启用或停用即可。
 
 ## 适合谁

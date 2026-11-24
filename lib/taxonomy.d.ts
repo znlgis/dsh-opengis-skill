@@ -1,6 +1,12 @@
 /** The coarse groups a plugin config may select from. */
 export declare const GROUP_IDS: readonly string[];
 
+/** The named scenario presets a plugin config may select from. */
+export declare const SCENARIO_IDS: readonly string[];
+
+/** The group set behind every scenario preset. */
+export declare const SCENARIO_PRESETS: Readonly<Record<string, readonly string[]>>;
+
 /** One-line description of every group. */
 export declare const GROUP_DESCRIPTIONS: Readonly<Record<string, string>>;
 
@@ -26,7 +32,9 @@ export declare function taxonomyProblems(names: readonly string[]): string[];
 
 /** The normalized plugin selection. */
 export interface OpenGisSkillSelection {
-	/** Groups to union; ignored when "only" is non-empty. */
+	/** Scenario preset that produced part of "groups", or null when none was set. */
+	scenario: string | null;
+	/** Groups to union (scenario preset plus "groups"); ignored when "only" is non-empty. */
 	groups: string[];
 	/** Explicit skill allow list; wins over "groups". */
 	only: string[];

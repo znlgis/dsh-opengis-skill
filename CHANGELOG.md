@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.2] - 2026-11-24
+
 ### Added — 可诊断性与兼容性证据
 
 - **`diagnose()`**（`lib/diagnose.js`，包根再导出）：同步、只读、不抛错的诊断入口，返回 `provider`/`packageVersion`/`skills`/`visible`/`missing`/`degraded`/`danglingRefs`/`hashMismatch`/`catalogTokens`/`hostVersionHint`/`healthy`，外加 `problems` 汇总内部异常。`healthy` 严格等于四个契约数组全空；`catalogTokens` 口径为 `ceil(Σ 可见 description 字符数 / 4)`；`hostVersionHint` 先看 `DSH_VERSION`/`DSH_HOST_VERSION`，再从已安装桌面应用的 `app.asar` 里读运行时版本，探不到给 `null`。普通 Node 无法把 `app.asar` 当目录读，因此这里按 ASAR 头解析成员，失败静默降级。

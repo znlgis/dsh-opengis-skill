@@ -7,8 +7,8 @@
 
 | 项 | 值 |
 | --- | --- |
-| 生成时间 | 2026-11-24T12:06:49.094Z（UTC） |
-| 包版本 | `0.5.1` |
+| 生成时间 | 2026-11-24T12:49:28.923Z（UTC） |
+| 包版本 | `0.5.2` |
 | 报告脚本版本 | 1（`scripts/compat-report.mjs`） |
 | Node | v24.9.0 |
 | 平台 | win32 x64 |
@@ -18,8 +18,8 @@
 
 | 测试文件 | 说明 | 命令 | 退出码 | 通过 | 失败 | 跳过 | 耗时 | 判定 |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| `test/dsh-contract.test.mjs` | skill 注册表契约回归 | `node --test --test-reporter=tap test/dsh-contract.test.mjs` | 0 | 8 | 0 | 0 | 256 ms | pass |
-| `test/dsh-integration.test.mjs` | 真实 DSH 注册表集成 | `node --test --test-reporter=tap test/dsh-integration.test.mjs` | 0 | 1 | 0 | 0 | 315 ms | pass |
+| `test/dsh-contract.test.mjs` | skill 注册表契约回归 | `node --test --test-reporter=tap test/dsh-contract.test.mjs` | 0 | 8 | 0 | 0 | 174 ms | pass |
+| `test/dsh-integration.test.mjs` | 真实 DSH 注册表集成 | `node --test --test-reporter=tap test/dsh-integration.test.mjs` | 0 | 1 | 0 | 0 | 289 ms | pass |
 
 ## 判定口径
 
